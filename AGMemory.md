@@ -10,12 +10,13 @@
 
 RootVine is a **pure infrastructure play** — a machine-to-machine commerce resolution layer for AI agents. It is NOT a consumer product, NOT a marketplace, NOT a comparison website.
 
+- **Ecosystem Role**: 🍄 **The Mycelium** — underground infrastructure connecting all trees. See `c:\AntigravityWorkspace\Holdings\PHILOSOPHY.md`
 - **No consumer UI** — agents only
 - **No SEO traffic** — no human funnels
 - **No dashboards** — the Vine brands handle human-facing needs
 - **Revenue model**: affiliate commissions via structured, neutral product resolution
 
-The Vine brands (BeatsVine, MainMenu) serve humans. RootVine serves bots.
+The Vine brands (BeatsVine, MainMenu) serve humans. RootVine serves bots. Like mycelium, it transfers nutrients (commerce data) between trees that can't communicate directly.
 
 ---
 
