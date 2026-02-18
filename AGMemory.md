@@ -5,6 +5,7 @@
 > **Public Repo**: https://github.com/RagingOrangutan/rootvine-mcp.git (npm package source)
 > **npm**: https://www.npmjs.com/package/rootvine-mcp (v1.0.0, published Feb 18, 2026)
 > **Domain**: `rootvine.ai` ✅ (purchased Feb 18, 2026)
+> **Port (dev)**: 3009 (Phase 2+ HTTP service; currently stdio-only MCP)
 
 ---
 
