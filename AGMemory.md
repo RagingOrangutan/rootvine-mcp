@@ -1,7 +1,9 @@
 # RootVine — AGMemory
 
 > **READ FIRST**: This is the authoritative memory file for RootVine. Read `c:\AntigravityWorkspace\AGMemory.md` for shared ecosystem context.
-> **Repo**: https://github.com/Pabston/RootVine.git
+> **Private Repo**: https://github.com/Pabston/RootVine.git (docs, strategy, spec)
+> **Public Repo**: https://github.com/RagingOrangutan/rootvine-mcp.git (npm package source)
+> **npm**: https://www.npmjs.com/package/rootvine-mcp (v1.0.0, published Feb 18, 2026)
 > **Domain**: `rootvine.ai` (pending purchase)
 
 ---
@@ -77,16 +79,18 @@ Phase 0: no limit by default. Abuse threshold: 120 req/min/fingerprint → `429`
 
 ## Architecture
 
-### Phase 0 (Current Target)
+### Phase 0 (LIVE — Feb 18, 2026)
 
 ```
 Agent → rootvine-mcp (npm, MIT) → Vine /json endpoints → Structured response
 ```
 
-- **Music**: BeatsVine `GET /[slug]/json` (TTL: 24h)
-- **Games**: MainMenu `GET /api/v1/games/:slug/json` (TTL: 15-60min)
+- **Music**: BeatsVine `GET /[slug]/json` (TTL: 24h) — includes on-demand resolution via iTunes Search → Songlink
+- **Games**: MainMenu `GET /api/v1/games/:slug/json` (TTL: 15-60min) — not yet implemented
 - MCP package is a **thin client** — calls endpoints, validates response with Zod, returns to agent
 - **No central server in Phase 0**
+- **On-demand resolution**: If a slug has no pre-existing page, `ondemand.ts` resolves via iTunes Search API → Songlink → builds RootVine response with click tokens and affiliate links
+- **Click tokens**: Stored in `rootvine_click_tokens` table on BeatsVine, redirect via `/r/:id`
 
 ### Phase 2+ (Future)
 
@@ -146,13 +150,13 @@ Vary: Accept-Encoding
 
 ## Distribution Strategy
 
-1. `npm install rootvine-mcp` — primary install path
-2. MCP directory listings (mcpservers.org, mcp.so)
+1. ✅ `npm install rootvine-mcp` — published v1.0.0 (Feb 18, 2026)
+2. **Next**: MCP directory listings (mcpservers.org, mcp.so)
 3. Structured data (`schema.org`) on all Vine pages
 4. Vine page `/json` responses with `mcp` metadata (agent learning loops)
 5. HTTP headers on `/json` responses (header-based discovery)
 6. Developer content (blog posts, READMEs, demos)
-7. Open-source GitHub repo
+7. ✅ Open-source GitHub repo — github.com/RagingOrangutan/rootvine-mcp
 8. AI platform marketplaces (future)
 
 ---
@@ -162,9 +166,10 @@ Vary: Accept-Encoding
 | Priority | Item | Status |
 |---|---|---|
 | 🔴 Critical | Launch BeatsVine | In progress |
-| 🔴 Critical | Add `/json` endpoints to BeatsVine | After launch |
-| 🟡 High | Build `rootvine-mcp` npm package | After `/json` |
-| 🟡 High | Test locally with Claude Desktop | After MCP |
+| ✅ Done | Add `/json` endpoints to BeatsVine | ✅ Feb 17, 2026 — with on-demand resolution |
+| ✅ Done | Build `rootvine-mcp` npm package | ✅ Feb 18, 2026 — v1.0.0 published |
+| ✅ Done | Push to GitHub | ✅ Feb 18, 2026 — RagingOrangutan/rootvine-mcp |
+| 🟡 High | Test locally with Claude Desktop | Next — after deploy |
 | 🟡 High | Submit to MCP directories | After local test |
 | 🟢 Medium | Add `/json` to MainMenu | After MCP verified |
 | 🟢 Medium | Purchase `rootvine.ai` domain | When ready |
@@ -214,5 +219,5 @@ Keep `/json` endpoints live permanently (zero maintenance cost).
 
 ---
 
-*Last updated: February 17, 2026 — Session: Created AGMemory. V1 spec locked after 3 rounds of stress-testing. Repo initialized. Strategy, roadmap, and spec committed to GitHub.*
+*Last updated: February 18, 2026 — Session: rootvine-mcp v1.0.0 published to npm (npmjs.com/package/rootvine-mcp). Public GitHub repo: RagingOrangutan/rootvine-mcp. On-demand resolution pipeline live on BeatsVine. Agent Intel analytics sub-page at /admin/analytics/rootvine. npm account: ragingorangutan. Previous: V1 spec locked, repo initialized.*
 *To update: append new sections or modify existing ones. Never delete history — mark as deprecated.*
