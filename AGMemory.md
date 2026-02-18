@@ -4,7 +4,7 @@
 > **Private Repo**: https://github.com/Pabston/RootVine.git (docs, strategy, spec)
 > **Public Repo**: https://github.com/RagingOrangutan/rootvine-mcp.git (npm package source)
 > **npm**: https://www.npmjs.com/package/rootvine-mcp (v1.0.0, published Feb 18, 2026)
-> **Domain**: `rootvine.ai` (pending purchase)
+> **Domain**: `rootvine.ai` ✅ (purchased Feb 18, 2026)
 
 ---
 
