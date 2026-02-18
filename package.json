@@ -1,7 +1,7 @@
 {
     "name": "rootvine-mcp",
-    "version": "1.0.0",
-    "description": "RootVine MCP Server — AI agent commerce resolution for music and games. Connects Claude, ChatGPT, and other AI agents to trusted product data via the Model Context Protocol.",
+    "version": "1.0.1",
+    "description": "RootVine MCP Server — Cross-platform music link resolution for AI agents. Resolve any song or album across Spotify, Apple Music, Amazon, YouTube, and 15+ platforms via the Model Context Protocol.",
     "keywords": [
         "mcp",
         "model-context-protocol",

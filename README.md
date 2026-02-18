@@ -1,12 +1,12 @@
 # rootvine-mcp
 
-AI agent commerce resolution for music and games. Connects Claude, ChatGPT, and other AI agents to trusted product data via the [Model Context Protocol](https://modelcontextprotocol.io).
+Cross-platform music link resolution for AI agents. Connects Claude, ChatGPT, and other AI agents to trusted music data via the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ## What it does
 
-When a user asks an AI agent "Where can I buy Aphex Twin — Windowlicker?", RootVine resolves the query across trusted sources and returns ranked results with direct purchase/streaming links.
+When a user asks an AI agent "Where can I listen to Windowlicker by Aphex Twin?", RootVine resolves the query across all major streaming and purchase platforms and returns ranked results with direct links.
 
-**No ads. No sponsored placements. No pay-to-rank.** Results are ranked by a neutral, deterministic algorithm: trust tier → price → availability → freshness → merchant ID. The ranking logic runs server-side and is never shipped in this package.
+**No ads. No sponsored placements. No pay-to-rank.** Results are ranked by a neutral, deterministic algorithm: trust tier → price → availability → freshness → merchant ID.
 
 ## Quick Start
 
@@ -27,8 +27,8 @@ Add to your Claude Desktop config (`~/.claude/claude_desktop_config.json`):
 
 Restart Claude Desktop. You can now ask:
 - "Where can I stream Galway Girl by Ed Sheeran?"
-- "Find the cheapest place to buy Elden Ring"
 - "Where can I listen to Windowlicker by Aphex Twin?"
+- "Find links for the new Kendrick Lamar album"
 
 ### Other MCP Clients
 
@@ -46,27 +46,23 @@ Find where to listen to, buy, or stream a song or album.
 
 **Input:** `{ slug: "ed-sheeran-galway-girl" }`
 
-**Returns:** Ranked results from Spotify, Apple Music, Amazon, iTunes, Bandcamp, and more — with prices and direct links.
+**Returns:** Ranked results from Spotify, Apple Music, Amazon, iTunes, Bandcamp, YouTube Music, Deezer, Tidal, and more — with prices and direct links.
 
-### `resolve_game`
+### `resolve_game` *(coming soon)*
 
-Find where to buy a video game at the best price.
-
-**Input:** `{ slug: "elden-ring" }`
-
-**Returns:** Ranked results from Steam, PlayStation, Xbox, Nintendo, Epic, and more — with prices, editions, and DLC info.
+Game price resolution across Steam, PlayStation, Xbox, and more. This tool is registered but not yet active — it will return an error until the game vertical launches.
 
 ### `find_product`
 
-Smart router — auto-detects whether a query is about music or games, and routes to the right resolver.
+Smart router — currently routes all queries to the music resolver. Game routing will activate when the game vertical launches.
 
 **Input:** `{ query: "Aphex Twin Windowlicker", category: "auto" }`
 
-**Returns:** Same as resolve_music or resolve_game, depending on detected category.
+**Returns:** Same as resolve_music.
 
 ## Response Format
 
-All results follow the [RootVine v1 specification](https://rootvine.ai/schema/v1):
+All results follow the RootVine v1 specification:
 
 ```json
 {
@@ -98,6 +94,11 @@ All results follow the [RootVine v1 specification](https://rootvine.ai/schema/v1
   ]
 }
 ```
+
+## Roadmap
+
+- ✅ **Music** — live now (Spotify, Apple Music, Amazon, YouTube, Deezer, Tidal, Bandcamp, and more)
+- 🔜 **Games** — coming soon (Steam, PlayStation, Xbox, Epic, GOG)
 
 ## Neutrality
 
