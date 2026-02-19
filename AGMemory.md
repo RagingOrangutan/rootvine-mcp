@@ -86,7 +86,7 @@ Phase 0: no limit by default. Abuse threshold: 120 req/min/fingerprint → `429`
 Agent → rootvine-mcp (npm, MIT) → Vine /json endpoints → Structured response
 ```
 
-- **Music**: BeatsVine `GET /[slug]/json` (TTL: 24h) — includes on-demand resolution via iTunes Search → Songlink
+- **Music**: BeatsVine `GET /[slug]/json` (TTL: 24h) — includes on-demand resolution via iTunes Search → Songlink. iTunes URLs are geo-localized (`geo.music.apple.com`) for international agents
 - **Games**: MainMenu `GET /api/v1/games/:slug/json` (TTL: 15-60min) — not yet implemented
 - MCP package is a **thin client** — calls endpoints, validates response with Zod, returns to agent
 - **No central server in Phase 0**
@@ -220,5 +220,5 @@ Keep `/json` endpoints live permanently (zero maintenance cost).
 
 ---
 
-*Last updated: February 18, 2026 — Session: rootvine-mcp v1.0.0 published to npm (npmjs.com/package/rootvine-mcp). Public GitHub repo: RagingOrangutan/rootvine-mcp. On-demand resolution pipeline live on BeatsVine. Agent Intel analytics sub-page at /admin/analytics/rootvine. npm account: ragingorangutan. Previous: V1 spec locked, repo initialized.*
+*Last updated: February 19, 2026 — Session: Geo-localized iTunes URLs in on-demand resolution pipeline (`ondemand.ts`). International agents now receive `geo.music.apple.com` links instead of US-specific URLs. Previous: rootvine-mcp v1.0.0 published to npm. Public GitHub repo. On-demand resolution pipeline live.*
 *To update: append new sections or modify existing ones. Never delete history — mark as deprecated.*
