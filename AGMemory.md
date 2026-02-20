@@ -152,7 +152,7 @@ Vary: Accept-Encoding
 ## Distribution Strategy
 
 1. ✅ `npm install rootvine-mcp` — published v1.0.0 (Feb 18, 2026)
-2. **Next**: MCP directory listings (mcpservers.org, mcp.so)
+2. ✅ MCP directory listings (mcpservers.org, mcp.so) — submitted Feb 20, 2026
 3. Structured data (`schema.org`) on all Vine pages
 4. Vine page `/json` responses with `mcp` metadata (agent learning loops)
 5. HTTP headers on `/json` responses (header-based discovery)
@@ -171,7 +171,7 @@ Vary: Accept-Encoding
 | ✅ Done | Build `rootvine-mcp` npm package | ✅ Feb 18, 2026 — v1.0.0 published |
 | ✅ Done | Push to GitHub | ✅ Feb 18, 2026 — RagingOrangutan/rootvine-mcp |
 | 🟡 High | Test locally with Claude Desktop | Next — after deploy |
-| 🟡 High | Submit to MCP directories | After local test |
+| ✅ Done | Submit to MCP directories | ✅ Feb 20, 2026 |
 | 🟢 Medium | Add `/json` to MainMenu | After MCP verified |
 | 🟢 Medium | Purchase `rootvine.ai` domain | When ready |
 | ⬜ Future | Amazon integration (Phase 2) | Requires team |
@@ -201,6 +201,7 @@ Keep `/json` endpoints live permanently (zero maintenance cost).
 | V1 Technical Spec (locked) | `V1_SPEC.md` |
 | Strategic Analysis | `STRATEGY.md` |
 | Six-Phase Roadmap | `ROADMAP.md` |
+| **Vine Taxonomy** | `VINE_TAXONOMY.md` — cross-project entity/label translation guide |
 | Shared Strategy | `c:\AntigravityWorkspace\AGMemory.md` → RootVine section |
 
 ---
@@ -220,5 +221,25 @@ Keep `/json` endpoints live permanently (zero maintenance cost).
 
 ---
 
-*Last updated: February 19, 2026 — Session: Geo-localized iTunes URLs in on-demand resolution pipeline (`ondemand.ts`). International agents now receive `geo.music.apple.com` links instead of US-specific URLs. Previous: rootvine-mcp v1.0.0 published to npm. Public GitHub repo. On-demand resolution pipeline live.*
+## VineLink Integration — Resolver Feeds Agent Commerce
+
+> Full strategy: global `AGMemory.md` → VineLink section.
+
+VineLink resolvers (books, podcasts, games, eventually music) produce the **structured data** that RootVine's `/json` endpoints expose to AI agents. The relationship:
+
+```
+VineLink Resolver → Vine Landing Page → /[slug]/json → rootvine-mcp → AI Agent
+```
+
+As each VineLink vertical goes live, a corresponding `resolve_*` tool gets added to the MCP package:
+- `resolve_music` — ✅ Live (BeatsVine, uses Odesli)
+- `resolve_books` — Planned (PulpVine, VineLink book resolver)
+- `resolve_podcasts` — Planned (CastVine, VineLink podcast resolver)
+- `resolve_games` — Planned (GameVine/MainMenu, VineLink game resolver)
+
+**RootVine doesn't build resolvers** — it consumes structured output from each Vine's `/json` endpoint. VineLink improves the quality of that input data.
+
+---
+
+*Last updated: February 20, 2026 — Session: VineLink integration documented — resolver layer feeds into RootVine's agent commerce endpoints. Previous: MCP directory submissions. VINE_TAXONOMY.md created. Geo-localized iTunes URLs. rootvine-mcp v1.0.0 published to npm.*
 *To update: append new sections or modify existing ones. Never delete history — mark as deprecated.*
