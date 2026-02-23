@@ -4,5 +4,9 @@ dist/
 .env
 .env.*
 
-# AG Memory - private project context
+# Internal docs - private, local-only
 AGMemory.md
+STRATEGY.md
+ROADMAP.md
+V1_SPEC.md
+VINE_TAXONOMY.md
