@@ -2,40 +2,34 @@
 # Builder Stage
 FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package management files
 COPY package.json package-lock.json ./
-
-# Install all dependencies (including dev dependencies for TypeScript build)
 RUN npm ci
 
-# Copy TypeScript configuration and source code
 COPY tsconfig.json ./
 COPY src/ ./src/
 
-# Compile TypeScript to JavaScript
 RUN npm run build
 
 
 # Production Stage
 FROM node:18-alpine AS release
 
-# Set working directory
+# Run as non-root for security (required for Glama inspectability)
+RUN addgroup -S rootvine && adduser -S rootvine -G rootvine
+
 WORKDIR /app
 
-# Copy package management files
 COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Install only production dependencies for a smaller image
-RUN npm ci --omit=dev
-
-# Copy compiled code from the builder stage
 COPY --from=builder /app/dist ./dist
 
-# Set production environment variable
+# Switch to non-root user
+USER rootvine
+
 ENV NODE_ENV=production
 
-# The MCP server strictly uses stdio for communication
+# The MCP server uses stdio for communication
 ENTRYPOINT ["node", "dist/index.js"]
