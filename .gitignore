@@ -3,3 +3,6 @@ dist/
 *.tsbuildinfo
 .env
 .env.*
+
+# AG Memory - private project context
+AGMemory.md
