@@ -10,3 +10,10 @@ STRATEGY.md
 ROADMAP.md
 V1_SPEC.md
 VINE_TAXONOMY.md
+
+# AI agent workflows & configs (private operational docs)
+.agents/
+.agent/
+_agents/
+_agent/
+.gemini/

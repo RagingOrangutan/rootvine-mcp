@@ -1,0 +1,42 @@
+# CodeRabbit Configuration — RootVine MCP
+language: "en-GB"
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  poem: false
+
+  path_filters:
+    - "!node_modules/**"
+    - "!dist/**"
+    - "!*.lock"
+    - "!package-lock.json"
+
+  path_instructions:
+    - path: "src/**"
+      instructions: |
+        RootVine is a public MCP package. Ensure no hardcoded secrets,
+        no side effects on import, and all external API calls use
+        timeouts. This is open source — review for information
+        disclosure in error messages.
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  tools:
+    gitleaks:
+      enabled: true
+    semgrep:
+      enabled: true
+    eslint:
+      enabled: true
+    biome:
+      enabled: true
+
+chat:
+  auto_reply: true
