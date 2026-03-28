@@ -4,17 +4,14 @@ dist/
 .env
 .env.*
 
-# Internal docs - private, local-only
-AGMemory.md
-CLAUDE.md
+# Internal project docs
 STRATEGY.md
 ROADMAP.md
 V1_SPEC.md
 VINE_TAXONOMY.md
 
-# AI agent workflows & configs (private operational docs)
-.agents/
-.agent/
-_agents/
-_agent/
-.gemini/
+# Local files
+*.exe
+.*_token
+coming-soon.html
+maintenance.html
