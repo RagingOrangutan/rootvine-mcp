@@ -34,7 +34,7 @@ export async function resolveMusic(input: ResolveMusicInput): Promise<ResolveMus
     try {
         const res = await fetch(url, {
             headers: {
-                "User-Agent": "rootvine-mcp/1.0.0",
+                "User-Agent": "rootvine-mcp/1.0.1",
                 "Accept": "application/json",
             },
             signal: AbortSignal.timeout(5000), // 5s timeout

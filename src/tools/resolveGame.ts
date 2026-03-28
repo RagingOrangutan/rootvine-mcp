@@ -33,7 +33,7 @@ export async function resolveGame(input: ResolveGameInput): Promise<ResolveGameR
     try {
         const res = await fetch(url, {
             headers: {
-                "User-Agent": "rootvine-mcp/1.0.0",
+                "User-Agent": "rootvine-mcp/1.0.1",
                 "Accept": "application/json",
             },
             signal: AbortSignal.timeout(5000),

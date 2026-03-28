@@ -6,6 +6,7 @@ dist/
 
 # Internal docs - private, local-only
 AGMemory.md
+CLAUDE.md
 STRATEGY.md
 ROADMAP.md
 V1_SPEC.md
