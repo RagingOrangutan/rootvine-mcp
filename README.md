@@ -1,12 +1,14 @@
 # rootvine-mcp
 
-Cross-platform music link resolution for AI agents. Connects Claude, ChatGPT, and other AI agents to trusted music data via the [Model Context Protocol](https://modelcontextprotocol.io).
+A neutral commerce resolution layer for AI agents. Connects Claude, ChatGPT, and other AI agents to trusted product and media data via the [Model Context Protocol](https://modelcontextprotocol.io) — covering every path from streaming to collector editions.
 
 ## What it does
 
-When a user asks an AI agent "Where can I listen to Windowlicker by Aphex Twin?", RootVine resolves the query across all major streaming and purchase platforms and returns ranked results with direct links.
+When a user asks an AI agent "Where can I listen to Windowlicker by Aphex Twin?", RootVine resolves the query across all major streaming, purchase, and physical platforms and returns ranked results with direct links.
 
-**No ads. No sponsored placements. No pay-to-rank.** Results are ranked by a neutral, deterministic algorithm: trust tier → price → availability → freshness → merchant ID.
+The same infrastructure answers the full purchase ladder: stream it, buy it digitally, or find the vinyl. Music is live today. Games, books, films, podcasts, and live events are rolling out as their verticals ship.
+
+**No ads. No sponsored placements. No pay-to-rank.** Results are ranked by a neutral, deterministic algorithm: trust tier → price → availability → freshness → merchant ID. Commission rates, affiliate networks, and sponsored flags are architecturally excluded from the ranking function.
 
 ## Quick Start
 
@@ -42,23 +44,28 @@ npx rootvine-mcp
 
 ### `resolve_music`
 
-Find where to listen to, buy, or stream a song or album.
+Find where to stream, buy, or collect a song or album.
 
 **Input:** `{ slug: "ed-sheeran-galway-girl" }`
 
-**Returns:** Ranked results from Spotify, Apple Music, Amazon, iTunes, Bandcamp, YouTube Music, Deezer, Tidal, and more — with prices and direct links.
+**Returns:** Ranked results covering:
+- **Streaming** — Spotify, Apple Music, Tidal, YouTube Music, Deezer
+- **Digital purchase** — iTunes Store, Amazon Music, Bandcamp
+- **Physical media** — vinyl, CD (via Amazon), Discogs collector listings
+
+Every result includes prices (where available), direct links, and affiliate-tagged click-through URLs for tracking.
 
 ### `resolve_game` *(coming soon)*
 
-Game price resolution across Steam, PlayStation, Xbox, and more. This tool is registered but not yet active — it will return an error until the game vertical launches.
+Game price resolution across Steam, PlayStation, Xbox, Nintendo, Epic, GOG, Humble, and Fanatical. This tool is registered but not yet active — it will return a "coming soon" response until the games vertical launches.
 
 ### `find_product`
 
-Smart router — currently routes all queries to the music resolver. Game routing will activate when the game vertical launches.
+Smart router — automatically detects category and routes to the correct resolver.
 
 **Input:** `{ query: "Aphex Twin Windowlicker", category: "auto" }`
 
-**Returns:** Same as resolve_music.
+**Returns:** Music results today (streaming, digital purchase, vinyl, CD, collector editions). Games, books, films, podcasts, and live event tickets will route automatically as each vertical launches.
 
 ## Response Format
 
@@ -97,8 +104,13 @@ All results follow the RootVine v1 specification:
 
 ## Roadmap
 
-- ✅ **Music** — live now (Spotify, Apple Music, Amazon, YouTube, Deezer, Tidal, Bandcamp, and more)
-- 🔜 **Games** — coming soon (Steam, PlayStation, Xbox, Epic, GOG)
+- ✅ **Music resolution** — live (stream, digital purchase, vinyl, CD, collector editions across Spotify, Apple Music, iTunes, Amazon, Bandcamp, Discogs, YouTube Music, Tidal, Deezer, and more)
+- 🔜 **Music discovery** — browse charts, genre walls, and editorial playlists
+- 🔜 **Games** — digital keys, physical copies, and collector editions (Steam, PlayStation, Xbox, Nintendo, Epic, GOG)
+- 🔜 **Books** — ebook, audiobook, paperback, hardback, and special editions (Amazon, Bookshop.org, Apple Books, Kobo, Audible)
+- 🔜 **Films & TV** — streaming, rental, digital purchase, DVD, Blu-ray, and 4K steelbook
+- 🔜 **Podcasts** — listen links across Apple Podcasts, Spotify, Pocket Casts, and more
+- 🔜 **Live events** — concert, gig, and festival tickets (Ticketmaster, Dice, See Tickets)
 
 ## Neutrality
 

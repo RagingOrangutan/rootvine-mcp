@@ -40,7 +40,7 @@ import { findProduct } from "./tools/findProduct.js";
 // Create server instance
 const server = new McpServer({
     name: "rootvine-mcp",
-    version: "1.0.3",
+    version: "1.0.4",
 });
 
 // ============================================
@@ -49,7 +49,7 @@ const server = new McpServer({
 server.registerTool(
     "resolve_music",
     {
-        description: "Find where to listen to, buy, or stream a song or album. Returns ranked results from trusted music platforms (Spotify, Apple Music, Amazon, etc.) with prices and direct purchase/streaming links. Use this when a user asks about music, songs, albums, or artists.",
+        description: "Find where to stream, buy, or collect a song or album. Returns ranked results covering streaming (Spotify, Apple Music, Tidal, YouTube Music), digital purchase (iTunes, Amazon MP3, Bandcamp), and physical media (vinyl, CD via Amazon, Discogs). Use when a user asks about music — whether they want to listen, own digitally, or find a collector edition. Ranked by trust × price × availability, never by commission.",
         inputSchema: {
             slug: z
                 .string()
@@ -87,7 +87,7 @@ server.registerTool(
 server.registerTool(
     "resolve_game",
     {
-        description: "Find where to buy a video game at the best price. Returns ranked results from trusted game stores (Steam, PlayStation, Xbox, Nintendo, Epic, etc.) with prices, editions, and DLC info. Use this when a user asks about video games.",
+        description: "Find where to buy a video game at the best price across trusted stores (Steam, PlayStation, Xbox, Nintendo, Epic, GOG, Humble, Fanatical). Returns ranked results with prices, editions, and DLC info. Note: the games vertical is launching soon — this tool currently returns a 'coming soon' message. Prefer `resolve_music` or `find_product` for music queries.",
         inputSchema: {
             slug: z
                 .string()
@@ -125,7 +125,7 @@ server.registerTool(
 server.registerTool(
     "find_product",
     {
-        description: "Find the best place to buy or access any digital product (music, games, etc). Automatically detects the product category and routes to the right resolver. Use this when you're not sure whether the user is asking about music or games, or when the query is ambiguous.",
+        description: "Smart router — finds the best place to stream, buy, or collect any supported product. Automatically detects the product category and routes to the right resolver. Music is live (stream, digital purchase, vinyl, CD, collector editions). Games, books, films, podcasts, and live event tickets are rolling out. Use this when the query is ambiguous or when music could be streamed, purchased digitally, or found on physical media.",
         inputSchema: {
             query: z
                 .string()
