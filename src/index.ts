@@ -40,7 +40,7 @@ import { findProduct } from "./tools/findProduct.js";
 // Create server instance
 const server = new McpServer({
     name: "rootvine-mcp",
-    version: "1.0.4",
+    version: "1.0.5",
 });
 
 // ============================================
