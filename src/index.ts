@@ -36,11 +36,12 @@ import { z } from "zod";
 import { resolveMusic, formatMusicResponse } from "./tools/resolveMusic.js";
 import { resolveGame, formatGameResponse } from "./tools/resolveGame.js";
 import { findProduct } from "./tools/findProduct.js";
+import { discoverMusic, formatDiscoverResponse } from "./tools/discoverMusic.js";
 
 // Create server instance
 const server = new McpServer({
     name: "rootvine-mcp",
-    version: "1.0.5",
+    version: "1.1.0",
 });
 
 // ============================================
@@ -147,6 +148,51 @@ server.registerTool(
                 {
                     type: "text" as const,
                     text: result.formatted,
+                },
+            ],
+        };
+    },
+);
+
+// ============================================
+// Tool: discover_music
+// ============================================
+server.registerTool(
+    "discover_music",
+    {
+        description:
+            "Browse curated music collections — charts, genre walls, moods, editorial playlists, and artist spotlights. Use when a user wants to EXPLORE music rather than look up a specific song or album. Examples: 'what's trending this week', 'find electronic music charts', 'show me focus playlists', 'who are the featured artists this week'. Returns walls (collections) with their slugs, which can then be passed back as the `wall` argument to expand into individual tracks/albums. Each entry includes a BeatsVine page URL whose streaming and purchase links can be fetched via `resolve_music`. Ranked by editorial pinning and refresh freshness, never by commission.",
+        inputSchema: {
+            chamber: z
+                .enum(["by-genre", "for-this-moment", "charts", "by-era", "spotlights"])
+                .optional()
+                .describe(
+                    "Chamber to browse. Omit for a top-level overview of all chambers and featured walls. 'by-genre' = genre corridors (house, hip-hop, jazz, etc.). 'for-this-moment' = mood and activity walls (chill, focus, workout). 'charts' = live streaming charts. 'by-era' = decades and golden eras. 'spotlights' = editor-led artist features.",
+                ),
+            wall: z
+                .string()
+                .optional()
+                .describe(
+                    "Wall slug to drill into. If set, returns the wall's track/album/artist entries. Takes priority over `chamber`. Example: 'lastfm-top-electronic-tracks', 'deezer-90s-hits'. Slugs are returned in the foyer and chamber responses.",
+                ),
+            limit: z
+                .number()
+                .int()
+                .positive()
+                .max(30)
+                .optional()
+                .describe(
+                    "Max items to return. Default 10, max 30. Applies to walls (foyer/chamber mode) or entries (wall mode).",
+                ),
+        },
+    },
+    async ({ chamber, wall, limit }) => {
+        const result = await discoverMusic({ chamber, wall, limit });
+        return {
+            content: [
+                {
+                    type: "text" as const,
+                    text: formatDiscoverResponse(result, limit),
                 },
             ],
         };

@@ -6,12 +6,12 @@
     "url": "https://github.com/RagingOrangutan/rootvine-mcp",
     "source": "github"
   },
-  "version": "1.0.5",
+  "version": "1.1.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "rootvine-mcp",
-      "version": "1.0.5",
+      "version": "1.1.0",
       "transport": {
         "type": "stdio"
       }

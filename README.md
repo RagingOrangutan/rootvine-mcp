@@ -42,6 +42,19 @@ npx rootvine-mcp
 
 ## Tools
 
+### `discover_music`
+
+Browse curated music collections — charts, genre walls, moods, editorial playlists, and artist spotlights.
+
+**Input:** `{ chamber?: "by-genre" | "for-this-moment" | "charts" | "by-era" | "spotlights", wall?: string, limit?: number }`
+
+**Modes (picked by which arg is set):**
+- **Foyer** (no args) — overview of all chambers and featured walls
+- **Chamber** (`chamber` arg) — list walls within a chamber (e.g. all genre corridors)
+- **Wall** (`wall` arg) — drill into a specific wall's tracks, albums, or artists
+
+**Returns:** Curated collections with honest attribution (e.g. "Curated by Deezer's editorial team", "Based on Last.fm scrobbles"). Each entry links to a BeatsVine page whose streaming and purchase links can be retrieved via `resolve_music`.
+
 ### `resolve_music`
 
 Find where to stream, buy, or collect a song or album.
@@ -105,7 +118,7 @@ All results follow the RootVine v1 specification:
 ## Roadmap
 
 - ✅ **Music resolution** — live (stream, digital purchase, vinyl, CD, collector editions across Spotify, Apple Music, iTunes, Amazon, Bandcamp, Discogs, YouTube Music, Tidal, Deezer, and more)
-- 🔜 **Music discovery** — browse charts, genre walls, and editorial playlists
+- ✅ **Music discovery** — live (browse charts, genre walls, mood collections, editorial playlists, artist spotlights)
 - 🔜 **Games** — digital keys, physical copies, and collector editions (Steam, PlayStation, Xbox, Nintendo, Epic, GOG)
 - 🔜 **Books** — ebook, audiobook, paperback, hardback, and special editions (Amazon, Bookshop.org, Apple Books, Kobo, Audible)
 - 🔜 **Films & TV** — streaming, rental, digital purchase, DVD, Blu-ray, and 4K steelbook
