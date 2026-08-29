@@ -12,6 +12,8 @@
 
 import { resolveMusic, formatMusicResponse } from "./resolveMusic.js";
 import { resolveGame, formatGameResponse } from "./resolveGame.js";
+import { slugify } from "../slugify.js";
+import { searchExistingSlug } from "./searchBeatsVine.js";
 import type { RootVineResponseV1 } from "../types.js";
 
 export interface FindProductInput {
@@ -31,7 +33,7 @@ export interface FindProductResult {
  * Simple category detection from query text.
  * In Phase 2+, this will use the central RootVine resolver.
  */
-function detectCategory(query: string): "music" | "game" {
+export function detectCategory(query: string): "music" | "game" {
     const q = query.toLowerCase();
 
     // Game indicators
@@ -58,27 +60,36 @@ function detectCategory(query: string): "music" | "game" {
     return "music";
 }
 
-/**
- * Normalize a query string into a URL slug.
- * "Ed Sheeran Galway Girl" → "ed-sheeran-galway-girl"
- */
-function queryToSlug(query: string): string {
-    return query
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\s-]/g, "") // Remove special chars
-        .replace(/\s+/g, "-")          // Spaces to hyphens
-        .replace(/-+/g, "-")           // Collapse multiple hyphens
-        .replace(/^-|-$/g, "");        // Trim leading/trailing hyphens
-}
-
 export async function findProduct(input: FindProductInput): Promise<FindProductResult> {
     const { query } = input;
     const category = input.category === "auto" || !input.category
         ? detectCategory(query)
         : input.category;
 
-    const slug = queryToSlug(query);
+    const constructed = slugify(query);
+
+    // A query of only punctuation or symbols slugifies to "", which would
+    // otherwise request "<base>//json" and report the resulting HTML as a
+    // BeatsVine outage. Fail honestly instead (Commandment 9). Checked BEFORE
+    // the catalogue lookup so junk queries cost no request at all.
+    if (!constructed) {
+        const error = `"${query}" could not be turned into a lookup — it has no letters or digits to build a slug from.`;
+        return {
+            success: false,
+            category,
+            formatted: `❌ ${error}`,
+            error,
+        };
+    }
+
+    // Prefer the catalogue's canonical slug over one we build. Construction
+    // cannot reproduce a pre-2026-08-28 slug ("stromae-ta-fte") or a page whose
+    // title carries a suffix ("…-2005-remaster"), and landing on the wrong slug
+    // silently downgrades the answer to an on-demand "partial" result.
+    // Falls back to construction whenever the catalogue has no page or is
+    // unreachable, so this can only improve a lookup, never break one.
+    const canonical = category === "music" ? await searchExistingSlug(query) : null;
+    const slug = canonical ?? constructed;
 
     if (category === "music") {
         const result = await resolveMusic({ slug });

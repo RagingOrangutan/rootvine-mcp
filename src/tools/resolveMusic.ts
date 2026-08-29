@@ -11,6 +11,7 @@
 
 import type { RootVineResponseV1 } from "../types.js";
 import { validateResponse } from "../validate.js";
+import { USER_AGENT } from "../version.js";
 
 const BEATSVINE_BASE = "https://www.beatsvine.com";
 
@@ -34,7 +35,7 @@ export async function resolveMusic(input: ResolveMusicInput): Promise<ResolveMus
     try {
         const res = await fetch(url, {
             headers: {
-                "User-Agent": "rootvine-mcp/1.0.2",
+                "User-Agent": USER_AGENT,
                 "Accept": "application/json",
             },
             signal: AbortSignal.timeout(5000), // 5s timeout

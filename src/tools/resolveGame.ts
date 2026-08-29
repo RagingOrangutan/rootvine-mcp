@@ -10,6 +10,7 @@
 
 import type { RootVineResponseV1 } from "../types.js";
 import { validateResponse } from "../validate.js";
+import { USER_AGENT } from "../version.js";
 
 const MAINMENU_BASE = "https://www.mainmenu.gg";
 
@@ -33,7 +34,7 @@ export async function resolveGame(input: ResolveGameInput): Promise<ResolveGameR
     try {
         const res = await fetch(url, {
             headers: {
-                "User-Agent": "rootvine-mcp/1.0.2",
+                "User-Agent": USER_AGENT,
                 "Accept": "application/json",
             },
             signal: AbortSignal.timeout(5000),

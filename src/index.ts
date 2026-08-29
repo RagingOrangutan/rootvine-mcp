@@ -37,11 +37,12 @@ import { resolveMusic, formatMusicResponse } from "./tools/resolveMusic.js";
 import { resolveGame, formatGameResponse } from "./tools/resolveGame.js";
 import { findProduct } from "./tools/findProduct.js";
 import { discoverMusic, formatDiscoverResponse } from "./tools/discoverMusic.js";
+import { PACKAGE_VERSION } from "./version.js";
 
 // Create server instance
 const server = new McpServer({
     name: "rootvine-mcp",
-    version: "1.1.0",
+    version: PACKAGE_VERSION,
 });
 
 // ============================================
@@ -54,7 +55,7 @@ server.registerTool(
         inputSchema: {
             slug: z
                 .string()
-                .describe("The BeatsVine page slug for the track or album. Format: artist-name-song-title (lowercase, hyphenated). Example: 'ed-sheeran-galway-girl'"),
+                .describe("The BeatsVine page slug for the track or album. Format: artist-name-song-title, lowercase and hyphenated. Slugs keep letters of any script, so non-Latin titles are valid: 'ed-sheeran-galway-girl', 'ヨルシカ-火星人'. Latin accents are folded to their base letter ('Rosalía Despechá' → 'rosalia-despecha'), and punctuation is dropped. Pass the slug undecoded — do not percent-encode it yourself."),
         },
     },
     async ({ slug }) => {

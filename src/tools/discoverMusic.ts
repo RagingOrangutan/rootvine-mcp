@@ -15,8 +15,9 @@
  * BeatsVine endpoints already do source/attribution/freshness handling.
  */
 
+import { USER_AGENT } from "../version.js";
+
 const BEATSVINE_BASE = "https://www.beatsvine.com";
-const USER_AGENT = "rootvine-mcp/1.1.0";
 const FETCH_TIMEOUT_MS = 5000;
 
 // ------------------------------------------------------------------
