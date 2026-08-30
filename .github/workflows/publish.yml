@@ -1,0 +1,51 @@
+name: Publish to npm
+
+# Publishes via npm Trusted Publishing (OIDC) — no npm token, no OTP.
+#
+# The npm CLI only accepts a typed 6-digit code for publish 2FA, which a
+# passkey-only account cannot produce, so publishing from a laptop is
+# impossible for this account. GitHub Actions authenticates with a short-lived
+# signed token instead. Requires a Trusted Publisher configured on npmjs.com
+# pointing at this repo and this exact workflow filename.
+#
+# To release: push a tag matching v* (e.g. v1.1.1), or run this workflow
+# manually from the Actions tab.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required: lets the runner mint the OIDC token npm verifies
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0" # trusted publishing needs >= 22.14.0
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Use an npm that supports trusted publishing
+        run: npm install -g npm@latest # needs >= 11.5.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish

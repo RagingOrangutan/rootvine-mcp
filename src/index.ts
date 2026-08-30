@@ -162,7 +162,7 @@ server.registerTool(
     "discover_music",
     {
         description:
-            "Browse curated music collections — charts, genre walls, moods, editorial playlists, and artist spotlights. Use when a user wants to EXPLORE music rather than look up a specific song or album. Examples: 'what's trending this week', 'find electronic music charts', 'show me focus playlists', 'who are the featured artists this week'. Returns walls (collections) with their slugs, which can then be passed back as the `wall` argument to expand into individual tracks/albums. Each entry includes a BeatsVine page URL whose streaming and purchase links can be fetched via `resolve_music`. Ranked by editorial pinning and refresh freshness, never by commission.",
+            "Browse curated music collections — charts, genre walls, moods, editorial playlists, artist spotlights, historic charts back to 1946, and artists currently on tour. Use when a user wants to EXPLORE music rather than look up a specific song or album. Examples: 'what's trending this week', 'find electronic music charts', 'show me focus playlists', 'what was number one in 1994', 'what was in the charts the year I was born', 'which artists are touring in the UK'. Returns walls (collections) with their slugs, which can then be passed back as the `wall` argument to expand into individual tracks, albums or artists. Each entry includes a BeatsVine page URL whose streaming and purchase links can be fetched via `resolve_music`. Ranked by editorial pinning and refresh freshness, never by commission.",
         inputSchema: {
             chamber: z
                 .enum(["by-genre", "for-this-moment", "charts", "by-era", "spotlights"])
@@ -176,6 +176,21 @@ server.registerTool(
                 .describe(
                     "Wall slug to drill into. If set, returns the wall's track/album/artist entries. Takes priority over `chamber`. Example: 'lastfm-top-electronic-tracks', 'deezer-90s-hits'. Slugs are returned in the foyer and chamber responses.",
                 ),
+            year: z
+                .number()
+                .int()
+                .min(1946)
+                .max(2100)
+                .optional()
+                .describe(
+                    "Browse archived chart snapshots from this year. Use for questions about the past — 'what was number one in 1994', 'what was in the charts when I was born'. Archives run from 1946 to the present. Returns snapshot slugs; pass one back as `wall` to get the ranked entries, where position 1 is the number one. Takes priority over `tours` and `chamber`.",
+                ),
+            tours: z
+                .boolean()
+                .optional()
+                .describe(
+                    "Set true to browse artists with upcoming live shows, sourced from See Tickets. Returns an umbrella collection plus per-genre collections; pass any slug back as `wall` to list the artists. Note these walls contain ARTISTS, not tracks, and coverage is UK only.",
+                ),
             limit: z
                 .number()
                 .int()
@@ -183,12 +198,12 @@ server.registerTool(
                 .max(30)
                 .optional()
                 .describe(
-                    "Max items to return. Default 10, max 30. Applies to walls (foyer/chamber mode) or entries (wall mode).",
+                    "Max items to return. Default 10, max 30. Applies to walls (foyer/chamber/tours mode), entries (wall mode) or snapshots (year mode).",
                 ),
         },
     },
-    async ({ chamber, wall, limit }) => {
-        const result = await discoverMusic({ chamber, wall, limit });
+    async ({ chamber, wall, year, tours, limit }) => {
+        const result = await discoverMusic({ chamber, wall, year, tours, limit });
         return {
             content: [
                 {

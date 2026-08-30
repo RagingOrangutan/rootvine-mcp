@@ -132,21 +132,96 @@ export interface WallResponse {
 }
 
 // ------------------------------------------------------------------
+// Chart archives — /discovery/[chamber]/history/json
+// ------------------------------------------------------------------
+
+/** One frozen weekly snapshot of a chart wall. */
+export interface ArchiveSnapshot {
+    slug: string;
+    parent_slug: string;
+    parent_name: string;
+    archived_at: string;
+    iso_week: string;
+    entry_count: number;
+    urls: { page: string; json: string };
+}
+
+export interface ArchivesResponse {
+    version: number;
+    type: string;
+    chamber: { slug: string; name: string; tagline?: string };
+    note?: string;
+    filter: { year: number | null };
+    /** Every year with at least one snapshot — 1946..2026 as of Aug 2026. */
+    years: number[];
+    count: number;
+    capped_at?: number;
+    archives: ArchiveSnapshot[];
+}
+
+/** Only the `charts` chamber has an archive; the others return this instead. */
+export interface NoHistoryResponse {
+    error: string;
+    message?: string;
+}
+
+export function isNoHistory(
+    response: ArchivesResponse | NoHistoryResponse,
+): response is NoHistoryResponse {
+    return typeof (response as NoHistoryResponse).error === "string";
+}
+
+// ------------------------------------------------------------------
+// Tours hub — /tours/json
+// ------------------------------------------------------------------
+
+export interface TourWall {
+    slug: string;
+    name: string;
+    description?: string;
+    genre_family?: string | null;
+    entry_count: number;
+    source?: string;
+    attribution: WallAttribution;
+    discovery_tags?: string[];
+    refresh_schedule?: string;
+    last_refreshed_at?: string;
+    urls: { page: string; json: string; embed?: string; og_image?: string };
+}
+
+export interface ToursResponse {
+    version: number;
+    type: string;
+    url: string;
+    /** "UK" today. Stated explicitly so agents do not assume global coverage. */
+    region: string;
+    total_walls: number;
+    umbrella: TourWall;
+    genre_walls: TourWall[];
+}
+
+// ------------------------------------------------------------------
 // Tool input/output
 // ------------------------------------------------------------------
 
 export interface DiscoverMusicInput {
     chamber?: ChamberSlug;
     wall?: string;
+    /** Browse archived chart snapshots from this year (1946–present). */
+    year?: number;
+    /** Browse artists with upcoming UK shows. */
+    tours?: boolean;
     limit?: number;
 }
 
 export interface DiscoverMusicResult {
     success: boolean;
-    mode?: "foyer" | "chamber" | "wall";
+    mode?: "foyer" | "chamber" | "wall" | "archives" | "tours";
     foyer?: FoyerResponse;
     chamber?: ChamberResponse;
     wall?: WallResponse;
+    archives?: ArchivesResponse;
+    tours?: ToursResponse;
     error?: string;
 }
 
@@ -194,6 +269,25 @@ export async function discoverMusic(input: DiscoverMusicInput): Promise<Discover
         return { success: true, mode: "wall", wall: result.data };
     }
 
+    // Mode 5: Chart archives — "what was number one in 1994"
+    if (typeof input.year === "number") {
+        const result = await fetchJson<ArchivesResponse | NoHistoryResponse>(
+            `/discovery/charts/history/json?year=${encodeURIComponent(String(input.year))}`,
+        );
+        if (!result.ok) return { success: false, error: result.error };
+        if (isNoHistory(result.data)) {
+            return { success: false, error: result.data.message ?? "No chart archive available." };
+        }
+        return { success: true, mode: "archives", archives: result.data };
+    }
+
+    // Mode 4: Tours hub
+    if (input.tours) {
+        const result = await fetchJson<ToursResponse>(`/tours/json`);
+        if (!result.ok) return { success: false, error: result.error };
+        return { success: true, mode: "tours", tours: result.data };
+    }
+
     // Mode 2: Chamber browse
     if (input.chamber) {
         const result = await fetchJson<ChamberResponse>(`/discovery/${input.chamber}/json`);
@@ -227,6 +321,74 @@ function formatWallSummary(wall: WallSummary, index: number): string[] {
     lines.push(`   ${wall.attribution.verb} ${wall.attribution.who}`);
     lines.push(`   ${wall.urls.page}`);
     return lines;
+}
+
+export function formatArchivesResponse(response: ArchivesResponse, limit: number): string {
+    const lines: string[] = [];
+    const year = response.filter?.year;
+
+    if (year == null) {
+        lines.push("🗓️ **BeatsVine Chart Archive**");
+        lines.push("");
+        lines.push(
+            `Frozen chart snapshots covering ${response.years.length} years. Pass a \`year\` to see that year's charts.`,
+        );
+        lines.push("");
+        lines.push(`Years available: ${response.years.join(", ")}`);
+        return lines.join("\n");
+    }
+
+    lines.push(`🗓️ **Charts from ${year}**`);
+    lines.push("");
+
+    const shown = response.archives.slice(0, limit);
+    if (shown.length === 0) {
+        lines.push(`No chart snapshots archived for ${year}.`);
+        return lines.join("\n");
+    }
+
+    lines.push(`${response.count} snapshot${response.count === 1 ? "" : "s"} from ${year}:`);
+    lines.push("");
+    shown.forEach((snap, i) => {
+        lines.push(`${i + 1}. **${snap.parent_name}**`);
+        lines.push(`   Slug: \`${snap.slug}\` (${snap.entry_count} entries · ${snap.iso_week})`);
+        lines.push(`   ${snap.urls.page}`);
+    });
+    lines.push("");
+    lines.push(
+        "Call `discover_music` again with `wall` set to one of these slugs to get the ranked entries — position 1 is the number one.",
+    );
+    return lines.join("\n");
+}
+
+export function formatToursResponse(response: ToursResponse, limit: number): string {
+    const lines: string[] = [];
+    lines.push(`🎤 **On Tour · ${response.region}**`);
+    lines.push("");
+    lines.push(
+        `${response.umbrella.entry_count} artists with upcoming ${response.region} shows, across ${response.total_walls} collections. ${response.umbrella.attribution.verb} ${response.umbrella.attribution.who}.`,
+    );
+    lines.push("");
+    lines.push(
+        `⚠️ These walls list **artists**, not tracks — each entry is an artist with upcoming shows. Coverage is ${response.region} only.`,
+    );
+    lines.push("");
+    lines.push(`**All touring artists:** \`${response.umbrella.slug}\` (${response.umbrella.entry_count} artists)`);
+    lines.push("");
+
+    const shown = response.genre_walls.slice(0, limit);
+    if (shown.length > 0) {
+        lines.push("## By genre");
+        shown.forEach((wall) => {
+            lines.push(`- **${wall.name}** — \`${wall.slug}\` (${wall.entry_count} artists)`);
+        });
+        lines.push("");
+    }
+
+    lines.push(
+        "Pass any slug as `wall` to list the artists. Each artist links to a BeatsVine page carrying their tour dates.",
+    );
+    return lines.join("\n");
 }
 
 export function formatFoyerResponse(response: FoyerResponse, limit: number): string {
@@ -327,6 +489,12 @@ export function formatDiscoverResponse(result: DiscoverMusicResult, requestedLim
 
     if (result.mode === "wall" && result.wall) {
         return formatWallResponse(result.wall, limit);
+    }
+    if (result.mode === "archives" && result.archives) {
+        return formatArchivesResponse(result.archives, limit);
+    }
+    if (result.mode === "tours" && result.tours) {
+        return formatToursResponse(result.tours, limit);
     }
     if (result.mode === "chamber" && result.chamber) {
         return formatChamberResponse(result.chamber, limit);
