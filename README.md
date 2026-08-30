@@ -44,18 +44,17 @@ npx rootvine-mcp
 
 ### `discover_music`
 
-Browse curated music collections — charts, genre walls, moods, editorial playlists, artist spotlights, historic charts back to 1946, and artists currently on tour.
+Browse curated music collections — charts, genre walls, moods, editorial playlists, artist spotlights, and historic charts back to 1946.
 
-**Input:** `{ chamber?: "by-genre" | "for-this-moment" | "charts" | "by-era" | "spotlights", wall?: string, year?: number, tours?: boolean, limit?: number }`
+**Input:** `{ chamber?: "by-genre" | "for-this-moment" | "charts" | "by-era" | "spotlights", wall?: string, year?: number, limit?: number }`
 
 **Modes (picked by which arg is set):**
 - **Foyer** (no args) — overview of all chambers and featured walls
 - **Chamber** (`chamber` arg) — list walls within a chamber (e.g. all genre corridors)
 - **Wall** (`wall` arg) — drill into a specific wall's tracks, albums, or artists
 - **Archive** (`year` arg) — frozen chart snapshots from any year since 1946
-- **Tours** (`tours: true`) — artists with upcoming live shows
 
-**Returns:** Curated collections with honest attribution (e.g. "Curated by Deezer's editorial team", "Based on Last.fm scrobbles", "Tour dates from See Tickets"). Each entry links to a BeatsVine page whose streaming and purchase links can be retrieved via `resolve_music`.
+**Returns:** Curated collections with honest attribution (e.g. "Curated by Deezer's editorial team", "Based on Last.fm scrobbles"). Each entry links to a BeatsVine page whose streaming and purchase links can be retrieved via `resolve_music`.
 
 **Answering "what was number one when I was born":**
 
@@ -64,7 +63,7 @@ discover_music { year: 1994 }          → bv-year-end-hot-100-1994 (100 entries
 discover_music { wall: "bv-year-end-hot-100-1994" }  → position 1 = Ace of Base, "The Sign"
 ```
 
-Archives cover Billboard Hot 100, Global Top 100 and UK Singles year-end charts, plus weekly snapshots. Tour walls list **artists** rather than tracks, and are UK-only for now.
+Archives cover Billboard Hot 100, Global Top 100 and UK Singles year-end charts, plus weekly snapshots.
 
 ### `resolve_music`
 
@@ -131,7 +130,7 @@ All results follow the RootVine v1 specification:
 - ✅ **Music resolution** — live (stream, digital purchase, vinyl, CD, collector editions across Spotify, Apple Music, iTunes, Amazon, Bandcamp, Discogs, YouTube Music, Tidal, Deezer, and more)
 - ✅ **Music discovery** — live (browse charts, genre walls, mood collections, editorial playlists, artist spotlights)
 - ✅ **Chart archives** — live (frozen year-end and weekly chart snapshots back to 1946 — Billboard Hot 100, Global Top 100, UK Singles)
-- 🟡 **Live events** — partial: browse artists with upcoming UK shows (See Tickets). Dates, venues and ticket links are not yet exposed to agents
+- 🔜 **Live events** — concert, gig, and festival tickets
 - 🔜 **Games** — digital keys, physical copies, and collector editions (Steam, PlayStation, Xbox, Nintendo, Epic, GOG)
 - 🔜 **Books** — ebook, audiobook, paperback, hardback, and special editions (Amazon, Bookshop.org, Apple Books, Kobo, Audible)
 - 🔜 **Films & TV** — streaming, rental, digital purchase, DVD, Blu-ray, and 4K steelbook

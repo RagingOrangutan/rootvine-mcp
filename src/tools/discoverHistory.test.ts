@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
-import {
-    formatArchivesResponse,
-    formatToursResponse,
-    isNoHistory,
-} from "./discoverMusic.js";
-import type { ArchivesResponse, ToursResponse } from "./discoverMusic.js";
+import * as discoverMusicModule from "./discoverMusic.js";
+import { formatArchivesResponse, isNoHistory } from "./discoverMusic.js";
+import type { ArchivesResponse } from "./discoverMusic.js";
 
 /**
- * Fixtures captured from production on 2026-08-30:
+ * Fixture captured from production on 2026-08-30:
  *   /discovery/charts/history/json?year=1994
- *   /tours/json
  */
 
 const archives1994: ArchivesResponse = {
@@ -33,35 +29,6 @@ const archives1994: ArchivesResponse = {
                 page: "https://www.beatsvine.com/walls/bv-year-end-hot-100-1994",
                 json: "https://www.beatsvine.com/walls/bv-year-end-hot-100-1994/json",
             },
-        },
-    ],
-};
-
-const toursHub: ToursResponse = {
-    version: 1,
-    type: "tours-hub",
-    url: "https://www.beatsvine.com/tours",
-    region: "UK",
-    total_walls: 14,
-    umbrella: {
-        slug: "on-tour-uk",
-        name: "On Tour · UK",
-        description: "Artists with upcoming UK shows on BeatsVine.",
-        entry_count: 50,
-        source: "seetickets_touring",
-        attribution: { kind: "events", short: "Tour dates · See Tickets", verb: "Tour dates from", who: "See Tickets", role: null },
-        urls: { page: "https://www.beatsvine.com/tours", json: "https://www.beatsvine.com/walls/on-tour-uk/json" },
-    },
-    genre_walls: [
-        {
-            slug: "on-tour-uk-rock",
-            name: "On Tour · UK · Rock",
-            description: "Rock artists with upcoming UK shows.",
-            genre_family: "rock",
-            entry_count: 50,
-            source: "seetickets_touring",
-            attribution: { kind: "events", short: "Tour dates · See Tickets", verb: "Tour dates from", who: "See Tickets", role: null },
-            urls: { page: "https://www.beatsvine.com/walls/on-tour-uk-rock", json: "https://www.beatsvine.com/walls/on-tour-uk-rock/json" },
         },
     ],
 };
@@ -117,25 +84,20 @@ describe("formatArchivesResponse", () => {
     });
 });
 
-describe("formatToursResponse", () => {
-    it("credits See Tickets, which the licence requires", () => {
-        expect(formatToursResponse(toursHub, 20)).toContain("See Tickets");
+describe("tours surface stays withdrawn (See Tickets licensing)", () => {
+    // v1.2.0 exposed BeatsVine's See Tickets-sourced touring walls to agents.
+    // BeatsVine's affiliate terms prohibit subcontracting feed data to third
+    // parties, and that covers derived facts — which artists are touring is
+    // itself feed-derived. This fails the build if the surface comes back
+    // without the agreement changing.
+    it("exports no tours formatter", () => {
+        expect("formatToursResponse" in discoverMusicModule).toBe(false);
     });
 
-    it("names the umbrella wall slug", () => {
-        expect(formatToursResponse(toursHub, 20)).toContain("on-tour-uk");
-    });
-
-    it("lists genre walls with their slugs", () => {
-        expect(formatToursResponse(toursHub, 20)).toContain("on-tour-uk-rock");
-    });
-
-    it("states the region so an agent does not assume worldwide coverage", () => {
-        expect(formatToursResponse(toursHub, 20)).toContain("UK");
-    });
-
-    it("says these walls contain artists, not tracks", () => {
-        // Tour walls are entity_type "artist" — an agent expecting tracks misreads them.
-        expect(formatToursResponse(toursHub, 20)).toMatch(/artist/i);
+    it("exports no tours types or helpers of any kind", () => {
+        const toursExports = Object.keys(discoverMusicModule).filter((k) =>
+            /tour/i.test(k),
+        );
+        expect(toursExports).toEqual([]);
     });
 });

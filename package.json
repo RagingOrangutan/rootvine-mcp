@@ -1,6 +1,6 @@
 {
     "name": "rootvine-mcp",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "mcpName": "io.github.RagingOrangutan/rootvine-mcp",
     "description": "RootVine MCP Server — Neutral commerce resolution for AI agents. Music live: stream, buy, or collect across 15+ platforms (Spotify, Apple Music, iTunes, Amazon, Bandcamp, Discogs, vinyl, CD, and more). Games, books, films, podcasts, and live events rolling out. Ranked by trust × price × availability — never by commission.",
     "keywords": [

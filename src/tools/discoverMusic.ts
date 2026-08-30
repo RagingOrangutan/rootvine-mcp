@@ -172,33 +172,17 @@ export function isNoHistory(
 }
 
 // ------------------------------------------------------------------
-// Tours hub — /tours/json
+// Tours — REMOVED in v1.2.1 (See Tickets licensing)
 // ------------------------------------------------------------------
-
-export interface TourWall {
-    slug: string;
-    name: string;
-    description?: string;
-    genre_family?: string | null;
-    entry_count: number;
-    source?: string;
-    attribution: WallAttribution;
-    discovery_tags?: string[];
-    refresh_schedule?: string;
-    last_refreshed_at?: string;
-    urls: { page: string; json: string; embed?: string; og_image?: string };
-}
-
-export interface ToursResponse {
-    version: number;
-    type: string;
-    url: string;
-    /** "UK" today. Stated explicitly so agents do not assume global coverage. */
-    region: string;
-    total_walls: number;
-    umbrella: TourWall;
-    genre_walls: TourWall[];
-}
+//
+// v1.2.0 exposed BeatsVine's /tours/json to agents. BeatsVine's See Tickets
+// agreement (Awin onboarding, 2026-04-28) prohibits "subcontracting feed data
+// to third parties", and an MCP serving arbitrary agents is subcontracting.
+// The prohibition covers derived facts, not just dates and counts: which
+// artists are touring is itself feed-derived.
+//
+// Do NOT reinstate without a written change to that agreement. Linking an agent
+// to a BeatsVine page is fine and always was; returning the feed is not.
 
 // ------------------------------------------------------------------
 // Tool input/output
@@ -209,19 +193,16 @@ export interface DiscoverMusicInput {
     wall?: string;
     /** Browse archived chart snapshots from this year (1946–present). */
     year?: number;
-    /** Browse artists with upcoming UK shows. */
-    tours?: boolean;
     limit?: number;
 }
 
 export interface DiscoverMusicResult {
     success: boolean;
-    mode?: "foyer" | "chamber" | "wall" | "archives" | "tours";
+    mode?: "foyer" | "chamber" | "wall" | "archives";
     foyer?: FoyerResponse;
     chamber?: ChamberResponse;
     wall?: WallResponse;
     archives?: ArchivesResponse;
-    tours?: ToursResponse;
     error?: string;
 }
 
@@ -279,13 +260,6 @@ export async function discoverMusic(input: DiscoverMusicInput): Promise<Discover
             return { success: false, error: result.data.message ?? "No chart archive available." };
         }
         return { success: true, mode: "archives", archives: result.data };
-    }
-
-    // Mode 4: Tours hub
-    if (input.tours) {
-        const result = await fetchJson<ToursResponse>(`/tours/json`);
-        if (!result.ok) return { success: false, error: result.error };
-        return { success: true, mode: "tours", tours: result.data };
     }
 
     // Mode 2: Chamber browse
@@ -357,36 +331,6 @@ export function formatArchivesResponse(response: ArchivesResponse, limit: number
     lines.push("");
     lines.push(
         "Call `discover_music` again with `wall` set to one of these slugs to get the ranked entries — position 1 is the number one.",
-    );
-    return lines.join("\n");
-}
-
-export function formatToursResponse(response: ToursResponse, limit: number): string {
-    const lines: string[] = [];
-    lines.push(`🎤 **On Tour · ${response.region}**`);
-    lines.push("");
-    lines.push(
-        `${response.umbrella.entry_count} artists with upcoming ${response.region} shows, across ${response.total_walls} collections. ${response.umbrella.attribution.verb} ${response.umbrella.attribution.who}.`,
-    );
-    lines.push("");
-    lines.push(
-        `⚠️ These walls list **artists**, not tracks — each entry is an artist with upcoming shows. Coverage is ${response.region} only.`,
-    );
-    lines.push("");
-    lines.push(`**All touring artists:** \`${response.umbrella.slug}\` (${response.umbrella.entry_count} artists)`);
-    lines.push("");
-
-    const shown = response.genre_walls.slice(0, limit);
-    if (shown.length > 0) {
-        lines.push("## By genre");
-        shown.forEach((wall) => {
-            lines.push(`- **${wall.name}** — \`${wall.slug}\` (${wall.entry_count} artists)`);
-        });
-        lines.push("");
-    }
-
-    lines.push(
-        "Pass any slug as `wall` to list the artists. Each artist links to a BeatsVine page carrying their tour dates.",
     );
     return lines.join("\n");
 }
@@ -492,9 +436,6 @@ export function formatDiscoverResponse(result: DiscoverMusicResult, requestedLim
     }
     if (result.mode === "archives" && result.archives) {
         return formatArchivesResponse(result.archives, limit);
-    }
-    if (result.mode === "tours" && result.tours) {
-        return formatToursResponse(result.tours, limit);
     }
     if (result.mode === "chamber" && result.chamber) {
         return formatChamberResponse(result.chamber, limit);
