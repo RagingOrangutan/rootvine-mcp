@@ -37,6 +37,7 @@ import { resolveMusic, formatMusicResponse } from "./tools/resolveMusic.js";
 import { resolveGame, formatGameResponse } from "./tools/resolveGame.js";
 import { findProduct } from "./tools/findProduct.js";
 import { discoverMusic, formatDiscoverResponse } from "./tools/discoverMusic.js";
+import { resolveArtist, formatArtistResponse } from "./tools/resolveArtist.js";
 import { PACKAGE_VERSION } from "./version.js";
 
 // Create server instance
@@ -149,6 +150,37 @@ server.registerTool(
                 {
                     type: "text" as const,
                     text: result.formatted,
+                },
+            ],
+        };
+    },
+);
+
+// ============================================
+// Tool: resolve_artist
+// ============================================
+server.registerTool(
+    "resolve_artist",
+    {
+        description:
+            "Get an artist's profile and full discography. Use when a user asks what else an artist has made, wants their albums, or is exploring a body of work rather than one song — 'what albums has Stromae released', 'show me Radiohead's discography', 'what else has this artist done'. Returns the artist's genres and every release BeatsVine holds, each with a slug that `resolve_music` turns into stream, purchase and physical-media links. Note that physical formats — vinyl, CD, Discogs listings — live at the ALBUM level, so this is the route to collector editions.",
+        inputSchema: {
+            slug: z
+                .string()
+                .describe(
+                    "The BeatsVine artist slug, lowercase and hyphenated: 'stromae', 'radiohead', 'ed-sheeran'. Slugs keep letters of any script, so non-Latin names are valid. An 'artist/name' form is also accepted, since that is what BeatsVine's search returns for artist hits.",
+                ),
+        },
+    },
+    async ({ slug }) => {
+        const result = await resolveArtist({ slug });
+        return {
+            content: [
+                {
+                    type: "text" as const,
+                    text: result.response
+                        ? formatArtistResponse(result.response, 30)
+                        : `❌ ${result.error || "Unknown error"}`,
                 },
             ],
         };

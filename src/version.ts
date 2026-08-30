@@ -8,7 +8,7 @@
  * Not read from package.json at runtime: the published package ships only
  * `dist/`, so a relative read would resolve differently once installed.
  */
-export const PACKAGE_VERSION = "1.2.1";
+export const PACKAGE_VERSION = "1.3.0";
 
 /** Sent on every outbound request so Vine projects can attribute agent traffic. */
 export const USER_AGENT = `rootvine-mcp/${PACKAGE_VERSION}`;

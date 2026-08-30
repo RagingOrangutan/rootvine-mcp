@@ -65,6 +65,29 @@ discover_music { wall: "bv-year-end-hot-100-1994" }  → position 1 = Ace of Bas
 
 Archives cover Billboard Hot 100, Global Top 100 and UK Singles year-end charts, plus weekly snapshots.
 
+### `resolve_artist`
+
+Get an artist's profile and full discography.
+
+**Input:** `{ slug: "stromae" }` — the `artist/stromae` form is also accepted
+
+**Returns:** Genres, artist metadata, and every release BeatsVine holds, each with a slug ready for `resolve_music`:
+
+```
+resolve_artist { slug: "stromae" }
+  → 19 releases, e.g. album/stromae-racine-carre
+
+resolve_music { slug: "album/stromae-racine-carre" }
+  → stream, purchase and physical-media links
+```
+
+Physical formats — vinyl, CD, Discogs listings — are **album-level** products, so this is the route to collector editions.
+
+Two response fields worth handling:
+
+- `discography_source: "not_yet_indexed"` means BeatsVine hasn't catalogued this artist yet. An empty list then means *unknown*, not *no releases* — the formatter says so explicitly rather than implying an empty discography.
+- `sparse_fallback_applied` means singles were included because the album list was thin. That's BeatsVine's presentation choice, surfaced so it isn't mistaken for the artist's own framing.
+
 ### `resolve_music`
 
 Find where to stream, buy, or collect a song or album.
@@ -130,6 +153,7 @@ All results follow the RootVine v1 specification:
 - ✅ **Music resolution** — live (stream, digital purchase, vinyl, CD, collector editions across Spotify, Apple Music, iTunes, Amazon, Bandcamp, Discogs, YouTube Music, Tidal, Deezer, and more)
 - ✅ **Music discovery** — live (browse charts, genre walls, mood collections, editorial playlists, artist spotlights)
 - ✅ **Chart archives** — live (frozen year-end and weekly chart snapshots back to 1946 — Billboard Hot 100, Global Top 100, UK Singles)
+- ✅ **Artist discography** — live (artist profiles and full release lists, each resolvable to stream/buy/collect links)
 - 🔜 **Live events** — concert, gig, and festival tickets
 - 🔜 **Games** — digital keys, physical copies, and collector editions (Steam, PlayStation, Xbox, Nintendo, Epic, GOG)
 - 🔜 **Books** — ebook, audiobook, paperback, hardback, and special editions (Amazon, Bookshop.org, Apple Books, Kobo, Audible)

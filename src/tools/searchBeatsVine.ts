@@ -63,8 +63,9 @@ export function pickExistingSlug(response: BeatsVineSearchResponse): string | nu
  * page for it, or if the lookup fails for any reason — callers fall back to
  * constructing a slug.
  */
-export async function searchExistingSlug(query: string): Promise<string | null> {
-    const url = `${BEATSVINE_BASE}/api/v1/search?q=${encodeURIComponent(query)}&platform=local`;
+async function searchOnce(query: string, type?: "album"): Promise<string | null> {
+    const typeParam = type ? `&type=${type}` : "";
+    const url = `${BEATSVINE_BASE}/api/v1/search?q=${encodeURIComponent(query)}&platform=local${typeParam}`;
 
     try {
         const res = await fetch(url, {
@@ -81,4 +82,19 @@ export async function searchExistingSlug(query: string): Promise<string | null> 
     } catch {
         return null;
     }
+}
+
+export async function searchExistingSlug(query: string): Promise<string | null> {
+    // Tracks first — the common case, and the default search index.
+    const track = await searchOnce(query);
+    if (track) return track;
+
+    // Album-only titles miss the track index entirely: "Stromae Racine Carree"
+    // returns nothing by default but resolves under type=album. Album slugs come
+    // back path-prefixed ("album/stromae-racine-carre"), which BeatsVine routes
+    // correctly, so they pass straight through to resolve_music.
+    //
+    // Costs a second request only when the first found nothing, so the common
+    // path is unaffected.
+    return searchOnce(query, "album");
 }
