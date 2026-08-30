@@ -11,10 +11,15 @@ name: Publish to npm
 # To release: push a tag matching v* (e.g. v1.1.1), or run this workflow
 # manually from the Actions tab.
 
+# NOT YET ARMED. Trusted publishing must first be registered on npmjs.com
+# (package → Settings → Trusted Publisher → GitHub Actions, workflow
+# "publish.yml"). Until then `npm publish` here fails for lack of an OIDC
+# trust relationship, so the tag trigger is commented out to avoid a failed
+# run on every release. Uncomment it once the trusted publisher exists.
 on:
-  push:
-    tags:
-      - "v*"
+  # push:
+  #   tags:
+  #     - "v*"
   workflow_dispatch:
 
 permissions:
