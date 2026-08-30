@@ -172,17 +172,29 @@ export function isNoHistory(
 }
 
 // ------------------------------------------------------------------
-// Tours — REMOVED in v1.2.1 (See Tickets licensing)
+// Tours — WITHDRAWN in v1.2.1, pending a licensed source
 // ------------------------------------------------------------------
+//
+// Not abandoned. Blocked on the data source, not on the idea.
 //
 // v1.2.0 exposed BeatsVine's /tours/json to agents. BeatsVine's See Tickets
 // agreement (Awin onboarding, 2026-04-28) prohibits "subcontracting feed data
 // to third parties", and an MCP serving arbitrary agents is subcontracting.
-// The prohibition covers derived facts, not just dates and counts: which
-// artists are touring is itself feed-derived.
+// The prohibition covers derived facts, not just dates and counts: a list of
+// artists selected because they have shows, ordered by next show date, is
+// feed-derived intelligence even with every explicit field stripped.
 //
-// Do NOT reinstate without a written change to that agreement. Linking an agent
-// to a BeatsVine page is fine and always was; returning the feed is not.
+// THE PATH BACK: a second tour-date affiliate whose terms permit onward data
+// use. The blocker is See Tickets' licence, not tour data as a category — so
+// this returns when provenance changes, and the reinstatement test is "which
+// source is this wall built from", never "is this a tour wall".
+//
+// Before reinstating, confirm with BeatsVine that the specific wall's `source`
+// field is the permissive provider. Mixed-provenance walls are the trap: one
+// See Tickets-sourced artist in an otherwise licensed wall re-breaches.
+//
+// Linking an agent to a BeatsVine page is fine and always was, whatever the
+// source; returning the feed's contents is what the licence governs.
 
 // ------------------------------------------------------------------
 // Tool input/output

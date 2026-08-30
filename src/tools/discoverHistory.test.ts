@@ -88,8 +88,12 @@ describe("tours surface stays withdrawn (See Tickets licensing)", () => {
     // v1.2.0 exposed BeatsVine's See Tickets-sourced touring walls to agents.
     // BeatsVine's affiliate terms prohibit subcontracting feed data to third
     // parties, and that covers derived facts — which artists are touring is
-    // itself feed-derived. This fails the build if the surface comes back
-    // without the agreement changing.
+    // itself feed-derived.
+    //
+    // This guard is a speed bump, not a verdict. Tour data returns if a second
+    // affiliate with permissive terms is signed. Deleting these tests is then
+    // the correct move — but only alongside a check of the wall's `source`
+    // field, because the licence attaches to the provider, not the feature.
     it("exports no tours formatter", () => {
         expect("formatToursResponse" in discoverMusicModule).toBe(false);
     });
