@@ -15,10 +15,11 @@ import { fileURLToPath } from "node:url";
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
 const llms = read("../site/llms.txt");
-const index = read("./index.ts");
+// server.ts holds the tools for both transports (stdio index.ts, hosted http.ts).
+const server = read("./server.ts");
 
 /** Tool names as the MCP server actually registers them. */
-const registeredTools = [...index.matchAll(/registerTool\(\s*"([a-z_]+)"/g)].map((m) => m[1]);
+const registeredTools = [...server.matchAll(/registerTool\(\s*"([a-z_]+)"/g)].map((m) => m[1]);
 
 describe("site/llms.txt", () => {
     it("finds the registered tools (guards the guard)", () => {

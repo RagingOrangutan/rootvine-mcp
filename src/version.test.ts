@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { PACKAGE_VERSION, USER_AGENT } from "./version.js";
+import { PACKAGE_VERSION, USER_AGENT, userAgentFor } from "./version.js";
 
 const pkg = JSON.parse(
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
@@ -19,6 +19,14 @@ describe("version", () => {
 
     it("builds the User-Agent from the package version", () => {
         expect(USER_AGENT).toBe(`rootvine-mcp/${pkg.version}`);
+    });
+
+    it("marks hosted calls so BeatsVine can tell mcp.rootvine.ai from local installs", () => {
+        expect(userAgentFor("stdio")).toBe(`rootvine-mcp/${pkg.version}`);
+        const hosted = userAgentFor("hosted");
+        expect(hosted).toBe(`rootvine-mcp/${pkg.version} (hosted; +https://mcp.rootvine.ai)`);
+        // BeatsVine's agentClassifier files anything containing "rootvine" as RootVine traffic.
+        expect(hosted.toLowerCase()).toContain("rootvine");
     });
 
     it("matches the version recorded in package-lock.json", () => {
