@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RootVine — resolution for AI agents</title>
+<meta name="description" content="Neutral product and media resolution for AI agents, delivered as an MCP server. Ranked by trust, price and availability — never by commission.">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
+<style>
+  :root { --bg: #fbfaf7; --fg: #1d1d1b; --muted: #5f5e59; --line: #e2e0d8; --code: #f0eee8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #ecebe6; --muted: #a09f99; --line: #2e2d2a; --code: #22211f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 38rem; margin: 0 auto; padding: 4rem 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+  p { margin: 0 0 1rem; }
+  .lede { color: var(--muted); }
+  code { font: .9em ui-monospace, "Cascadia Code", Consolas, monospace;
+         background: var(--code); padding: .15em .4em; border-radius: 4px; }
+  pre { background: var(--code); padding: 1rem; border-radius: 6px; overflow-x: auto; margin: 0 0 1.5rem; }
+  pre code { background: none; padding: 0; }
+  ul { padding-left: 1.2rem; margin: 0 0 1.5rem; }
+  a { color: inherit; text-underline-offset: 3px; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line);
+           color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>RootVine</h1>
+  <p class="lede">Neutral product and media resolution for AI agents, delivered as an MCP server.</p>
+
+  <p>Ask where to stream, buy or collect something and get back ranked options with direct links — ordered by trust, price and availability, never by commission.</p>
+
+  <p>There is nothing to browse here. RootVine is used by agents, not visited by people.</p>
+
+  <pre><code>npx -y rootvine-mcp</code></pre>
+
+  <ul>
+    <li><a href="/llms.txt">llms.txt</a> — what RootVine does, for agents</li>
+    <li><a href="https://www.npmjs.com/package/rootvine-mcp">npm package</a></li>
+    <li><a href="https://github.com/RagingOrangutan/rootvine-mcp">Source</a> — MIT licence</li>
+  </ul>
+
+  <footer>Some outbound links carry affiliate codes. They never influence ranking.</footer>
+</main>
+</body>
+</html>

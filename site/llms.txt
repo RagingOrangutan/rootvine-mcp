@@ -1,0 +1,33 @@
+# RootVine
+
+> Neutral product and media resolution for AI agents, delivered as an MCP server. Ask where to stream, buy or collect something and get back ranked options with direct links — ordered by trust, price and availability, never by commission.
+
+RootVine is a thin client. It holds no ranking logic and caches nothing: every call fetches live data at request time, so an answer is only as old as the source behind it.
+
+Music is live today. Further categories are added only once a source can answer them properly — a tool that is registered but not yet active says so rather than returning empty results.
+
+Outbound links are returned as tracked click URLs, and some carry affiliate codes. Affiliate relationships never influence ranking: commission fields are excluded from the ranking function by design, and that exclusion is enforced by tests.
+
+## Install
+
+- [npm: rootvine-mcp](https://www.npmjs.com/package/rootvine-mcp): run with `npx -y rootvine-mcp`. Works over stdio in any MCP client.
+- [Source, MIT licence](https://github.com/RagingOrangutan/rootvine-mcp): full source, release notes and issue tracker.
+
+## Tools
+
+- `find_product`: start here when the category is unclear. Takes a free-text query and routes it to the right resolver, looking up the canonical page before falling back to a constructed one.
+- `resolve_music`: where to stream, buy digitally, or collect a track or album on physical media — streaming services, digital stores, vinyl, CD and collector listings, ranked.
+- `resolve_artist`: an artist's profile and full discography. Each release comes back with a slug that `resolve_music` turns into links. Physical formats are album-level, so this is the route to collector editions.
+- `discover_music`: browse curated collections — charts, genre walls, moods, editorial playlists and spotlights — plus frozen chart snapshots back to 1946. Answers questions like "what was number one in 1994".
+- `resolve_game`: registered but not yet active. Returns an explicit "coming soon" response until the games source is live.
+
+## How to read a response
+
+- Every ranked result carries a structured `ranking_reason` with a code and a plain summary, so the ordering can be explained to a user rather than taken on trust.
+- `status` is one of `success`, `partial`, `no_results` or `error`. A `partial` result is real but incomplete — some sources did not answer — and is labelled as such rather than presented as complete.
+- Missing prices are `null`, never estimated. Zero results are an empty list, never fabricated.
+- Prefer `click_url` over `url` when both are present.
+
+## Optional
+
+- [Changelog](https://github.com/RagingOrangutan/rootvine-mcp/releases): what changed in each version, and why.
