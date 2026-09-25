@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RagingOrangutan/rootvine-mcp",
-  "description": "Neutral commerce resolution for AI agents. Music live across 15+ platforms — stream, buy, or collect. Games, books, films, podcasts, and events rolling out. Ranked by trust × price × availability, never by commission.",
+  "description": "Neutral commerce resolution for AI agents — music live, ranked by trust, never by commission.",
   "repository": {
     "url": "https://github.com/RagingOrangutan/rootvine-mcp",
     "source": "github"
