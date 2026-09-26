@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { lookupMusic, formatMusicLookup, type MusicLookupAnswer } from "./lookupMusic.js";
 import { fakeBeatsVine, type Call } from "../testing/fakeBeatsVine.js";
-import { pageAnswer, liveAnswer, searchBody } from "../testing/fixtures.js";
+import { pageAnswer, liveAnswer, notFound, searchBody } from "../testing/fixtures.js";
 
 /**
  * The one music pipeline behind resolve_music, find_product and
@@ -394,6 +394,22 @@ describe("lookupMusic — failures and limits", () => {
         if (!lookup.ok) expect(lookup.error).toMatch(/search did not answer/);
         // One failed search is enough: no more searching, no probing.
         expect(searches(calls)).toHaveLength(1);
+    });
+
+    // Agreed with BeatsVine 2026-09-26, after Apple's iTunes search refused its
+    // server: when its live lookup could not ask any finder, BeatsVine answers
+    // 503 SOURCE_ERROR (retryable), never NOT_FOUND. That is a failure to check,
+    // so RootVine must report an error worth retrying, never "no match".
+    it("reports BeatsVine's 'could not check' as an error worth retrying, never a miss", async () => {
+        const couldNotCheck = {
+            ...notFound("sigur-ros-hoppipolla"),
+            error: { code: "SOURCE_ERROR", message: "No music source could be asked", retryable: true },
+        };
+        fakeBeatsVine({ "page:sigur-ros-hoppipolla": { status: 503, body: couldNotCheck } });
+        expect(await lookupMusic("hoppipolla by sigur ros")).toEqual({
+            ok: false,
+            error: "BeatsVine reported an error: No music source could be asked (worth retrying)",
+        });
     });
 
     it("reports an error when BeatsVine cannot be reached", async () => {
