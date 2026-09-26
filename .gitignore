@@ -1,5 +1,9 @@
 node_modules/
 dist/
+# deploy.sh build staging and rollback copies on the server
+dist-staging/
+dist-prev/
+dist-failed/
 *.tsbuildinfo
 .env
 .env.*

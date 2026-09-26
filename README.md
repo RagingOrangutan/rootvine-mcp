@@ -12,7 +12,17 @@ The same infrastructure answers the full purchase ladder: stream it, buy it digi
 
 ## Quick Start
 
-### Claude Desktop
+### Hosted — nothing to install
+
+RootVine runs as a hosted, streamable-HTTP MCP server:
+
+```
+https://mcp.rootvine.ai/mcp
+```
+
+Add it by URL in any client that accepts a remote MCP server — for example, in claude.ai: **Settings → Connectors → Add custom connector**. No login, no key. The same five tools as the npm package, answering from the same live sources.
+
+### Claude Desktop (local, via npm)
 
 Add to your Claude Desktop config (`~/.claude/claude_desktop_config.json`):
 

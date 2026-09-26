@@ -6,10 +6,11 @@ RootVine is a thin client. It holds no ranking logic and caches nothing: every c
 
 Music is live today. Further categories are added only once a source can answer them properly — a tool that is registered but not yet active says so rather than returning empty results.
 
-Outbound links are returned as tracked click URLs, and some carry affiliate codes. Affiliate relationships never influence ranking: commission fields are excluded from the ranking function by design, and that exclusion is enforced by tests.
+Outbound links are returned as tracked click URLs, and some carry affiliate codes. Only a tracked click URL can lead to a tagged page; the plain `url` in each result never carries an affiliate code. Affiliate relationships never influence ranking: commission fields are excluded from the ranking function by design, and that exclusion is enforced by tests.
 
 ## Install
 
+- Hosted, nothing to install: add `https://mcp.rootvine.ai/mcp` as a remote MCP server (streamable HTTP, no login, no key) in any client that accepts one, such as a claude.ai custom connector.
 - [npm: rootvine-mcp](https://www.npmjs.com/package/rootvine-mcp): run with `npx -y rootvine-mcp`. Works over stdio in any MCP client.
 - [Source, MIT licence](https://github.com/RagingOrangutan/rootvine-mcp): full source, release notes and issue tracker.
 
