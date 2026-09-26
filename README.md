@@ -52,57 +52,13 @@ npx rootvine-mcp
 
 ## Tools
 
-### `discover_music`
-
-Browse curated music collections — charts, genre walls, moods, editorial playlists, artist spotlights, and historic charts back to 1946.
-
-**Input:** `{ chamber?: "by-genre" | "for-this-moment" | "charts" | "by-era" | "spotlights", wall?: string, year?: number, limit?: number }`
-
-**Modes (picked by which arg is set):**
-- **Foyer** (no args) — overview of all chambers and featured walls
-- **Chamber** (`chamber` arg) — list walls within a chamber (e.g. all genre corridors)
-- **Wall** (`wall` arg) — drill into a specific wall's tracks, albums, or artists
-- **Archive** (`year` arg) — frozen chart snapshots from any year since 1946
-
-**Returns:** Curated collections with honest attribution (e.g. "Curated by Deezer's editorial team", "Based on Last.fm scrobbles"). Each entry links to a BeatsVine page whose streaming and purchase links can be retrieved via `resolve_music`.
-
-**Answering "what was number one when I was born":**
-
-```
-discover_music { year: 1994 }          → bv-year-end-hot-100-1994 (100 entries)
-discover_music { wall: "bv-year-end-hot-100-1994" }  → position 1 = Ace of Base, "The Sign"
-```
-
-Archives cover Billboard Hot 100, Global Top 100 and UK Singles year-end charts, plus weekly snapshots.
-
-### `resolve_artist`
-
-Get an artist's profile and full discography.
-
-**Input:** `{ slug: "stromae" }` — the `artist/stromae` form is also accepted
-
-**Returns:** Genres, artist metadata, and every release BeatsVine holds, each with a slug ready for `resolve_music`:
-
-```
-resolve_artist { slug: "stromae" }
-  → 19 releases, e.g. album/stromae-racine-carre
-
-resolve_music { slug: "album/stromae-racine-carre" }
-  → stream, purchase and physical-media links
-```
-
-Physical formats — vinyl, CD, Discogs listings — are **album-level** products, so this is the route to collector editions.
-
-Two response fields worth handling:
-
-- `discography_source: "not_yet_indexed"` means BeatsVine hasn't catalogued this artist yet. An empty list then means *unknown*, not *no releases* — the formatter says so explicitly rather than implying an empty discography.
-- `sparse_fallback_applied` means singles were included because the album list was thin. That's BeatsVine's presentation choice, surfaced so it isn't mistaken for the artist's own framing.
+Pass the user's own words as `query` — "galway girl by ed sheeran", "what albums has Stromae released". Never build slugs: RootVine finds the page. `slug` still works as a deprecated alias for `query` (send one or the other, not both).
 
 ### `resolve_music`
 
 Find where to stream, buy, or collect a song or album.
 
-**Input:** `{ slug: "ed-sheeran-galway-girl" }`
+**Input:** `{ query: "galway girl by ed sheeran" }` — the user's words, a BeatsVine page address, or a `query` value from an earlier answer.
 
 **Returns:** Ranked results covering:
 - **Streaming** — Spotify, Apple Music, Tidal, YouTube Music, Deezer
@@ -111,52 +67,112 @@ Find where to stream, buy, or collect a song or album.
 
 Every result includes prices (where available), direct links, and affiliate-tagged click-through URLs for tracking.
 
-### `resolve_game` *(coming soon)*
+**How the page is found:** RootVine searches BeatsVine's catalogue with the words that matter (request words like "where can I stream" and glue like "by" are set aside) and opens the best match. A typo goes to BeatsVine's live lookup, which corrects it; RootVine then opens the real page and says so in `resolved_as` (`corrected: true`). A weak guess is never presented as the answer: a miss returns `status: "no_results"` with `did_you_mean` — close matches, each with a `query` to pass back. A title several artists recorded, asked without an artist ("shape of you"), returns those recordings to choose from rather than one picked at random.
 
-Game price resolution across Steam, PlayStation, Xbox, Nintendo, Epic, GOG, Humble, and Fanatical. This tool is registered but not yet active — it will return a "coming soon" response until the games vertical launches.
+### `resolve_artist`
+
+Get an artist's profile and full discography.
+
+**Input:** `{ query: "Stromae" }` — the name, a BeatsVine artist address, or `artist/stromae`
+
+**Returns:** Genres, artist metadata, and every release BeatsVine holds, each with a `query` ready for `resolve_music`:
+
+```
+resolve_artist { query: "Stromae" }
+  → 19 releases, e.g. album/stromae-racine-carre
+
+resolve_music { query: "album/stromae-racine-carre" }
+  → stream, purchase and physical-media links
+```
+
+Physical formats — vinyl, CD, Discogs listings — are **album-level** products, so this is the route to collector editions. A misspelt name returns `did_you_mean` rather than a guess.
+
+Two response fields worth handling:
+
+- `discography_complete: false` (BeatsVine's `not_yet_indexed`) means BeatsVine hasn't catalogued this artist yet. An empty list then means *unknown*, not *no releases* — the text says so explicitly rather than implying an empty discography.
+- `sparse_fallback_applied` means singles were included because the album list was thin. That's BeatsVine's presentation choice, surfaced so it isn't mistaken for the artist's own framing.
+
+### `discover_music`
+
+Browse curated music collections — charts, genre walls, moods, editorial playlists, artist spotlights, and historic charts back to 1946.
+
+**Input:** `{ chamber?: "by-genre" | "for-this-moment" | "charts" | "by-era" | "spotlights", wall?: string, year?: number, limit?: number, resolve?: boolean }`
+
+**Modes (picked by which arg is set):**
+- **Foyer** (no args) — overview of all chambers and featured walls
+- **Chamber** (`chamber` arg) — list walls within a chamber (e.g. all genre corridors)
+- **Wall** (`wall` arg: a slug, `walls/slug` or the wall's address) — drill into a specific wall's tracks, albums, or artists
+- **Archive** (`year` arg) — frozen chart snapshots from any year since 1946
+
+**Returns:** Curated collections with honest attribution (e.g. "Curated by Deezer's editorial team", "Based on Last.fm scrobbles"). Each entry carries a `query` that `resolve_music` turns into streaming and purchase links.
+
+**Answering "what was number one when I was born — and where can I get it":**
+
+```
+discover_music { year: 1994 }                                       → bv-year-end-hot-100-1994 (100 entries)
+discover_music { wall: "bv-year-end-hot-100-1994", resolve: true }  → number one = Ace of Base, "The Sign", with its links
+```
+
+`resolve: true` fetches the page the chart itself names for number one — no search, no guessed name. If those links are slow, the chart still comes back, with a note.
+
+Archives cover Billboard Hot 100, Global Top 100 and UK Singles year-end charts, plus weekly snapshots.
 
 ### `find_product`
 
-Smart router — automatically detects category and routes to the correct resolver.
+Smart router — reads the category from the user's words and routes to the right resolver.
 
 **Input:** `{ query: "Aphex Twin Windowlicker", category: "auto" }`
 
-**Returns:** Music results today (streaming, digital purchase, vinyl, CD, collector editions). Games, books, films, podcasts, and live event tickets will route automatically as each vertical launches.
+Detection is keyword-based: music words ("album", "vinyl", "song", "by"…) win over game words, so "Abbey Road deluxe edition vinyl" is music. Set `category` when you know it.
+
+**Returns:** the chosen tool's answer. Music results today (streaming, digital purchase, vinyl, CD, collector editions); games answer "coming soon". Books, films, podcasts, and live event tickets will route automatically as each vertical launches.
+
+### `resolve_game` *(coming soon)*
+
+Game price resolution across Steam, PlayStation, Xbox, Nintendo, Epic, GOG, Humble, and Fanatical. This tool is registered but not yet active — it returns an explicit "coming soon" (no links, no prices, no request made) until the games vertical launches.
 
 ## Response Format
 
-All results follow the RootVine v1 specification:
+RootVine never fabricates. Every link existed at resolved_at.
+
+Every answer comes twice: readable text, and `structuredContent` (MCP structured output) carrying the same facts, so an agent reads fields instead of parsing prose. Failures are plain-text errors (`isError`); a miss is an answer (`no_results`), not an error.
+
+A `resolve_music` answer, abbreviated:
 
 ```json
 {
-  "rootvine": {
-    "version": "1.0",
-    "resolver": "beatsvine",
-    "category": "music"
-  },
   "status": "success",
-  "query": {
-    "type": "music",
-    "artist": "Aphex Twin",
-    "title": "Windowlicker"
-  },
+  "artist": "Ed Sheeran",
+  "title": "Galway Girl",
+  "kind": "track",
   "results": [
     {
       "rank": 1,
       "merchant": "Spotify",
-      "trust_tier": "authoritative",
-      "price": null,
-      "url": "https://open.spotify.com/track/...",
-      "click_url": "https://beatsvine.com/r/abc123",
       "type": "stream",
-      "ranking_reason": {
-        "code": "FREE_STREAM_T1",
-        "summary": "Free stream from authoritative source"
-      }
+      "trust_tier": "authoritative",
+      "availability": "available",
+      "price": null,
+      "click_url": "https://www.beatsvine.com/r/abc123",
+      "url": "https://open.spotify.com/track/...",
+      "ranking_reason": { "code": "FREE_STREAM_T1", "summary": "Stream with no listed price, Tier 1" }
     }
-  ]
+  ],
+  "partial_sources": [],
+  "warnings": [],
+  "resolved_as": { "query": "ed-sheeran-galway-girl", "via": "catalogue_search", "corrected": false, "note": null },
+  "did_you_mean": [],
+  "page_url": "https://www.beatsvine.com/ed-sheeran-galway-girl",
+  "response_id": "rv_resp_...",
+  "resolved_at": "2026-09-26T12:00:00.000Z",
+  "ttl_seconds": 86400
 }
 ```
+
+- `status` is `success`, `partial` (real but incomplete — `partial_sources` names what didn't answer) or `no_results`.
+- A missing price is `null` — never zero, never "free".
+- `page_url` is given only when the BeatsVine page is confirmed to exist.
+- Limits: UK-focused stores, prices in GBP; music only today.
 
 ## Roadmap
 

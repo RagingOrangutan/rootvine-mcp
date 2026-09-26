@@ -1,16 +1,24 @@
 /**
- * resolve_game — Find where to buy a game at the best price
+ * resolve_game — where to buy a video game, via MainMenu.
  *
- * Calls MainMenu /api/v1/games/:slug/json and returns ranked results.
+ * Games are not live yet: mainmenu.gg serves a coming-soon page, not the
+ * /json endpoint. Until GAMES_LIVE is flipped, lookupGame answers an honest
+ * "coming soon" without contacting MainMenu — it used to fetch that page and
+ * report a garbled parse error. The structured shape already fits a live
+ * answer, so going live needs no schema change.
+ *
  * Always uses click_url when present (per V1 spec §5).
- *
- * NOTE: This tool is scaffolded for Phase 2, when MainMenu adds its /json endpoint.
- * For now it returns a "not yet available" message.
  */
 
 import type { RootVineResponseV1 } from "../types.js";
 import { validateResponse } from "../validate.js";
 import { USER_AGENT } from "../version.js";
+import { slugify } from "../slugify.js";
+
+/** Flip when MainMenu serves /api/v1/games/:slug/json. */
+export const GAMES_LIVE = false;
+
+const COMING_SOON = "RootVine's games resolver is not live yet, so there are no store links or prices for games today.";
 
 const MAINMENU_BASE = "https://www.mainmenu.gg";
 
@@ -47,7 +55,12 @@ export async function resolveGame(input: ResolveGameInput): Promise<ResolveGameR
             };
         }
 
-        const data = await res.json();
+        let data: unknown;
+        try {
+            data = JSON.parse(await res.text());
+        } catch {
+            return { success: false, error: `MainMenu answered HTTP ${res.status} with something that is not JSON` };
+        }
 
         // Validate against v1 schema
         const validation = validateResponse(data);
@@ -69,6 +82,57 @@ export async function resolveGame(input: ResolveGameInput): Promise<ResolveGameR
             error: `Failed to reach MainMenu: ${message}`,
         };
     }
+}
+
+export interface GameLookupAnswer {
+    status: "coming_soon" | "success" | "partial" | "no_results";
+    live: boolean;
+    /** What the user asked, as given. */
+    query: string;
+    message: string | null;
+    response: RootVineResponseV1 | null;
+    checked_at: string;
+}
+
+export type GameLookup = { ok: true; answer: GameLookupAnswer } | { ok: false; error: string };
+
+export async function lookupGame(query: string, live: boolean = GAMES_LIVE): Promise<GameLookup> {
+    const asked = query.trim();
+    const checked_at = new Date().toISOString();
+    if (!live) {
+        return { ok: true, answer: { status: "coming_soon", live: false, query: asked, message: COMING_SOON, response: null, checked_at } };
+    }
+
+    const slug = slugify(asked);
+    if (!slug) {
+        return { ok: false, error: `"${asked}" could not be turned into a lookup — it has no letters or digits to build a slug from.` };
+    }
+    const result = await resolveGame({ slug });
+    if (!result.success || !result.response) return { ok: false, error: result.error ?? "Unknown error" };
+
+    const response = result.response;
+    if (response.status === "error") {
+        if (response.error?.code === "NOT_FOUND") {
+            return { ok: true, answer: { status: "no_results", live: true, query: asked, message: null, response: null, checked_at } };
+        }
+        return { ok: false, error: `MainMenu reported an error: ${response.error?.message ?? "no details"}` };
+    }
+    return { ok: true, answer: { status: response.status, live: true, query: asked, message: null, response, checked_at } };
+}
+
+export function formatGameLookup(answer: GameLookupAnswer): string {
+    if (answer.status === "coming_soon") {
+        return [
+            `🎮 Games are coming soon — "${answer.query}"`,
+            "",
+            COMING_SOON,
+            "Tell the user plainly that games are not supported yet — never guess a store link or a price.",
+        ].join("\n");
+    }
+    if (!answer.response) {
+        return [`🎮 ${answer.query}`, "", "No results found for this game.", `Checked at ${answer.checked_at}`].join("\n");
+    }
+    return formatGameResponse(answer.response);
 }
 
 /**

@@ -1,82 +1,63 @@
 /**
- * resolve_music — Find where to listen to, buy, or stream music
+ * resolve_music — one BeatsVine music answer: fetch it (resolveMusicPath) and
+ * write it out for the agent (formatMusicResponse). Deciding WHICH page to
+ * fetch is lookupMusic's job.
  *
- * Calls BeatsVine /[slug]/json and returns ranked results.
  * Always uses click_url when present (per V1 spec §5).
- *
- * The slug can be:
- * - A BeatsVine page slug (e.g. "aphex-twin-windowlicker")
- * - An artist-title combination (e.g. "ed-sheeran-galway-girl")
  */
 
 import type { RootVineResponseV1 } from "../types.js";
 import { validateResponse } from "../validate.js";
-import { USER_AGENT } from "../version.js";
+import { getJson, musicJsonUrl, pathFromPageUrl } from "../beatsvine.js";
 
-const BEATSVINE_BASE = "https://www.beatsvine.com";
-
-export interface ResolveMusicInput {
-    slug: string;
-}
-
-export interface ResolveMusicResult {
-    success: boolean;
-    response?: RootVineResponseV1;
-    error?: string;
-}
+export type PageFetch =
+    /** A page's answer, or BeatsVine's live lookup of a name with no page. */
+    | { kind: "answer"; response: RootVineResponseV1; path: string }
+    /** An answer with no links at all (a page can exist before its links do). */
+    | { kind: "empty"; response: RootVineResponseV1; path: string }
+    /** BeatsVine has nothing under this name. */
+    | { kind: "not_found" }
+    | { kind: "error"; error: string };
 
 /**
- * Resolve a music query via BeatsVine.
+ * Fetch the answer at a page path ("slug" or "album/slug"). A slug with no
+ * page makes BeatsVine look the words up live; the album route never does.
+ * `path` is where BeatsVine's redirects ended.
  */
-export async function resolveMusic(input: ResolveMusicInput): Promise<ResolveMusicResult> {
-    const { slug } = input;
-    const url = `${BEATSVINE_BASE}/${encodeURIComponent(slug)}/json`;
+export async function resolveMusicPath(path: string, signal: AbortSignal): Promise<PageFetch> {
+    const fetched = await getJson(musicJsonUrl(path), signal);
+    if (!fetched.ok) return { kind: "error", error: fetched.error };
 
-    try {
-        const res = await fetch(url, {
-            headers: {
-                "User-Agent": USER_AGENT,
-                "Accept": "application/json",
-            },
-            signal: AbortSignal.timeout(5000), // 5s timeout
-        });
-
-        if (!res.ok && res.status !== 404) {
-            return {
-                success: false,
-                error: `BeatsVine returned HTTP ${res.status}`,
-            };
-        }
-
-        const data = await res.json();
-
-        // Validate against v1 schema
-        const validation = validateResponse(data);
-        if (!validation.success) {
-            return {
-                success: false,
-                error: `Response validation failed: ${validation.error.message}`,
-            };
-        }
-
-        return {
-            success: true,
-            response: validation.data as RootVineResponseV1,
-        };
-    } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        return {
-            success: false,
-            error: `Failed to reach BeatsVine: ${message}`,
-        };
+    const validation = validateResponse(fetched.data);
+    if (!validation.success) {
+        // A server error with a JSON body is still a server error.
+        if (fetched.status >= 500) return { kind: "error", error: `BeatsVine answered HTTP ${fetched.status}` };
+        const issue = validation.error.issues[0];
+        const where = issue ? ` at ${issue.path.join(".") || "the top level"}: ${issue.message}` : "";
+        return { kind: "error", error: `BeatsVine's answer (HTTP ${fetched.status}) failed validation${where}` };
     }
+    // The schema drops every field it does not name, partner offers included.
+    const response = validation.data as RootVineResponseV1;
+
+    if (response.status === "error") {
+        if (response.error?.code === "NOT_FOUND") return { kind: "not_found" };
+        const message = response.error?.message ?? `HTTP ${fetched.status}`;
+        return { kind: "error", error: `BeatsVine reported an error: ${message}${response.error?.retryable ? " (worth retrying)" : ""}` };
+    }
+    const landed = pathFromPageUrl(fetched.finalUrl) ?? path;
+    if (response.status === "no_results") return { kind: "empty", response, path: landed };
+    return { kind: "answer", response, path: landed };
 }
 
 /**
  * Format a music response for display to the agent/user.
  * Always prefers click_url over url for attribution.
+ *
+ * `pageUrl` is the BeatsVine page, passed only when it is confirmed to exist:
+ * BeatsVine's own source_url lacks /album/ on albums and, after a live lookup,
+ * points at a page that does not exist, so it is never shown.
  */
-export function formatMusicResponse(response: RootVineResponseV1): string {
+export function formatMusicResponse(response: RootVineResponseV1, options: { pageUrl?: string | null } = {}): string {
     const lines: string[] = [];
 
     // Header
@@ -102,10 +83,6 @@ export function formatMusicResponse(response: RootVineResponseV1): string {
 
     if (response.status === "no_results") {
         lines.push("No results found for this query.");
-        if (response.source_url) {
-            lines.push(`Source: ${response.source_url}`);
-        }
-        return lines.join("\n");
     }
 
     // Results
@@ -126,15 +103,21 @@ export function formatMusicResponse(response: RootVineResponseV1): string {
         );
     }
 
+    if (response.partial_sources.length > 0) {
+        lines.push(`⚠️ Partial answer: ${response.partial_sources.join(", ")} did not answer, so some links may be missing.`);
+    }
+
     // Warnings
     if (response.warnings.length > 0) {
         lines.push(`⚠️ Warnings: ${response.warnings.join(", ")}`);
     }
 
-    // Source
-    if (response.source_url) {
-        lines.push(`Source: ${response.source_url}`);
+    if (options.pageUrl) {
+        lines.push(`Page: ${options.pageUrl}`);
     }
+
+    // Citation: every link existed at resolved_at.
+    lines.push(`Resolved at ${response.rootvine.resolved_at} · ${response.response_id}`);
 
     return lines.join("\n");
 }

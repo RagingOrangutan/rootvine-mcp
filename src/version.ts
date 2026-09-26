@@ -8,7 +8,7 @@
  * Not read from package.json at runtime: the published package ships only
  * `dist/`, so a relative read would resolve differently once installed.
  */
-export const PACKAGE_VERSION = "1.3.2";
+export const PACKAGE_VERSION = "1.4.0";
 
 export type TransportMode = "stdio" | "hosted";
 
@@ -18,13 +18,19 @@ export type TransportMode = "stdio" | "hosted";
  * and the hosted endpoint marks itself so its calls can be told apart from
  * local installs of the package.
  */
-export function userAgentFor(mode: TransportMode): string {
+export function userAgentFor(mode: TransportMode, options: { check?: boolean } = {}): string {
     const base = `rootvine-mcp/${PACKAGE_VERSION}`;
-    return mode === "hosted" ? `${base} (hosted; +https://mcp.rootvine.ai)` : base;
+    const agent = mode === "hosted" ? `${base} (hosted; +https://mcp.rootvine.ai)` : base;
+    // Release checks send deliberate typos and nonsense; BeatsVine's demand
+    // ledger skips anything marked "(check)" (agreed 2026-09-26).
+    return options.check ? `${agent} (check)` : agent;
 }
 
 /**
  * Sent on every outbound request. ROOTVINE_MODE=hosted is set by the hosted
  * endpoint's process manager (ecosystem.config.cjs); the npm package never sets it.
+ * ROOTVINE_CHECK=1 is set only by scripts/live-check.mjs.
  */
-export const USER_AGENT = userAgentFor(process.env.ROOTVINE_MODE === "hosted" ? "hosted" : "stdio");
+export const USER_AGENT = userAgentFor(process.env.ROOTVINE_MODE === "hosted" ? "hosted" : "stdio", {
+    check: process.env.ROOTVINE_CHECK === "1",
+});

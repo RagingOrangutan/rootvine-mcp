@@ -15,10 +15,19 @@
  * BeatsVine endpoints already do source/attribution/freshness handling.
  */
 
-import { USER_AGENT } from "../version.js";
+import { BEATSVINE_BASE, getJson, pathFromPageUrl } from "../beatsvine.js";
+import { createDeadline, type Deadline } from "../deadline.js";
+import { parseWallInput } from "../query.js";
+import { formatMusicLookup, openMusicPage, type MusicLookupAnswer } from "./lookupMusic.js";
 
-const BEATSVINE_BASE = "https://www.beatsvine.com";
-const FETCH_TIMEOUT_MS = 5000;
+const DISCOVER_BUDGET_MS = 12_000;
+/** A cold wall took 8 s to build on 2026-09-26 (0.2–0.5 s once warm). */
+const FETCH_CAP_MS = 10_000;
+/** Number one's links, fetched alongside the wall when asked for. */
+const TOP_CAP_MS = 2_500;
+
+const RESOLVE_NEEDS_WALL =
+    "`resolve` works on one wall: pass a wall or chart snapshot's slug as `wall` with `resolve: true` to get number one's links.";
 
 // ------------------------------------------------------------------
 // Shared types (narrow — we only pull the fields we actually render)
@@ -202,10 +211,13 @@ export function isNoHistory(
 
 export interface DiscoverMusicInput {
     chamber?: ChamberSlug;
+    /** A wall slug, "walls/slug", or the wall's BeatsVine address. */
     wall?: string;
     /** Browse archived chart snapshots from this year (1946–present). */
     year?: number;
     limit?: number;
+    /** With `wall`: also fetch number one's links, in the same call. */
+    resolve?: boolean;
 }
 
 export interface DiscoverMusicResult {
@@ -215,6 +227,11 @@ export interface DiscoverMusicResult {
     chamber?: ChamberResponse;
     wall?: WallResponse;
     archives?: ArchivesResponse;
+    /** Set only when `resolve` was asked for: number one's links, or null with topNote saying why. */
+    top?: MusicLookupAnswer | null;
+    topNote?: string | null;
+    /** When RootVine fetched this. */
+    checkedAt?: string;
     error?: string;
 }
 
@@ -222,27 +239,61 @@ export interface DiscoverMusicResult {
 // Fetch helper
 // ------------------------------------------------------------------
 
-async function fetchJson<T>(path: string): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
-    const url = `${BEATSVINE_BASE}${path}`;
-    try {
-        const res = await fetch(url, {
-            headers: {
-                "User-Agent": USER_AGENT,
-                "Accept": "application/json",
-            },
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        });
-
-        if (!res.ok) {
-            return { ok: false, error: `BeatsVine returned HTTP ${res.status} for ${path}` };
-        }
-
-        const data = (await res.json()) as T;
-        return { ok: true, data };
-    } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        return { ok: false, error: `Failed to reach BeatsVine: ${message}` };
+async function fetchJson<T>(path: string, signal: AbortSignal): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+    const fetched = await getJson(`${BEATSVINE_BASE}${path}`, signal);
+    if (!fetched.ok) {
+        return { ok: false, error: fetched.status && fetched.status >= 400 ? `BeatsVine returned HTTP ${fetched.status} for ${path}` : fetched.error };
     }
+    if (fetched.status < 200 || fetched.status >= 300) {
+        // BeatsVine explains its refusals ("No published wall…", "…licensed
+        // ticketing data that cannot be served to third parties…"): pass that
+        // on, with the public page when it names one.
+        const body = fetched.data as { message?: unknown; url?: unknown } | null;
+        if (body && typeof body.message === "string" && body.message) {
+            return { ok: false, error: typeof body.url === "string" ? `${body.message} ${body.url}` : body.message };
+        }
+        return { ok: false, error: `BeatsVine returned HTTP ${fetched.status} for ${path}` };
+    }
+    return { ok: true, data: fetched.data as T };
+}
+
+/**
+ * Number one's links: the page the wall itself names, fetched as named — no
+ * search and no guessed name. Never fails the call: the wall comes back
+ * either way, with a note saying why the links did not.
+ */
+async function resolveTop(wall: WallResponse, deadline: Deadline): Promise<{ top: MusicLookupAnswer | null; note: string | null }> {
+    const first = wall.entries.find((e) => e.position === 1) ?? wall.entries[0];
+    if (!first) return { top: null, note: "This wall has no entries." };
+
+    const name = [first.artist, first.title].filter(Boolean).join(" — ") || `Entry ${first.position}`;
+    const path = pathFromPageUrl(first.page_url);
+    if (wall.entity_type === "artist" || path?.startsWith("artist/")) {
+        return { top: null, note: `This is an artist wall — call resolve_artist with "${first.title ?? name}" for their releases.` };
+    }
+    if (!path) {
+        return { top: null, note: `Number one (${name}) has no BeatsVine page yet — call resolve_music with its artist and title.` };
+    }
+
+    const opened = await openMusicPage(path, deadline.signal(TOP_CAP_MS), name);
+    if (!opened.ok) {
+        return {
+            top: null,
+            note: opened.error === "BeatsVine did not answer in time"
+                ? `Number one's links (${name}) did not arrive in time — call resolve_music with query "${path}".`
+                : `Could not fetch number one's links (${name}): ${opened.error} — call resolve_music with query "${path}".`,
+        };
+    }
+    if (opened.answer.status === "no_results") {
+        // openMusicPage notes a page that exists without links; no note means no page.
+        return {
+            top: null,
+            note: opened.answer.resolved_as.note
+                ? `Number one (${name}) has no links on BeatsVine yet.`
+                : `Number one (${name}) no longer has a BeatsVine page — call resolve_music with its artist and title.`,
+        };
+    }
+    return { top: opened.answer, note: null };
 }
 
 // ------------------------------------------------------------------
@@ -254,37 +305,47 @@ async function fetchJson<T>(path: string): Promise<{ ok: true; data: T } | { ok:
  *   wall > chamber > foyer
  */
 export async function discoverMusic(input: DiscoverMusicInput): Promise<DiscoverMusicResult> {
+    const deadline = createDeadline(DISCOVER_BUDGET_MS);
+    const signal = () => deadline.signal(FETCH_CAP_MS);
+    const checkedAt = new Date().toISOString();
+
     // Mode 3: Specific wall — most specific, wins over chamber
     if (input.wall) {
-        const slug = input.wall.trim().toLowerCase();
-        const result = await fetchJson<WallResponse>(`/walls/${encodeURIComponent(slug)}/json`);
+        const slug = parseWallInput(input.wall);
+        const result = await fetchJson<WallResponse>(`/walls/${encodeURIComponent(slug)}/json`, signal());
         if (!result.ok) return { success: false, error: result.error };
-        return { success: true, mode: "wall", wall: result.data };
+        if (!input.resolve) return { success: true, mode: "wall", wall: result.data, checkedAt };
+        const { top, note } = await resolveTop(result.data, deadline);
+        return { success: true, mode: "wall", wall: result.data, top, topNote: note, checkedAt };
     }
+
+    // Outside wall mode there is no single number one: say how to get one.
+    const resolveNote = input.resolve ? { top: null, topNote: RESOLVE_NEEDS_WALL } : {};
 
     // Mode 5: Chart archives — "what was number one in 1994"
     if (typeof input.year === "number") {
         const result = await fetchJson<ArchivesResponse | NoHistoryResponse>(
             `/discovery/charts/history/json?year=${encodeURIComponent(String(input.year))}`,
+            signal(),
         );
         if (!result.ok) return { success: false, error: result.error };
         if (isNoHistory(result.data)) {
             return { success: false, error: result.data.message ?? "No chart archive available." };
         }
-        return { success: true, mode: "archives", archives: result.data };
+        return { success: true, mode: "archives", archives: result.data, checkedAt, ...resolveNote };
     }
 
     // Mode 2: Chamber browse
     if (input.chamber) {
-        const result = await fetchJson<ChamberResponse>(`/discovery/${input.chamber}/json`);
+        const result = await fetchJson<ChamberResponse>(`/discovery/${input.chamber}/json`, signal());
         if (!result.ok) return { success: false, error: result.error };
-        return { success: true, mode: "chamber", chamber: result.data };
+        return { success: true, mode: "chamber", chamber: result.data, checkedAt, ...resolveNote };
     }
 
     // Mode 1: Foyer (top-level discovery)
-    const result = await fetchJson<FoyerResponse>(`/discovery/json`);
+    const result = await fetchJson<FoyerResponse>(`/discovery/json`, signal());
     if (!result.ok) return { success: false, error: result.error };
-    return { success: true, mode: "foyer", foyer: result.data };
+    return { success: true, mode: "foyer", foyer: result.data, checkedAt, ...resolveNote };
 }
 
 // ------------------------------------------------------------------
@@ -294,6 +355,11 @@ export async function discoverMusic(input: DiscoverMusicInput): Promise<Discover
 function clampLimit(n: number | undefined, defaultN: number, maxN: number): number {
     if (typeof n !== "number" || !Number.isFinite(n) || n <= 0) return defaultN;
     return Math.min(Math.floor(n), maxN);
+}
+
+/** How many walls, entries or snapshots to show: 10 by default, 30 at most. */
+export function discoverLimit(requested?: number): number {
+    return clampLimit(requested, 10, 30);
 }
 
 function formatWallSummary(wall: WallSummary, index: number): string[] {
@@ -427,7 +493,7 @@ export function formatWallResponse(response: WallResponse, limit: number): strin
     }
     lines.push(
         "",
-        "Each entry is a BeatsVine page — hit its URL (or call `resolve_music` with its slug) to get the full stream/buy/collect link set.",
+        "Each entry is a BeatsVine page — pass its address to `resolve_music` for the full stream/buy/collect link set, or call `discover_music` with this wall and `resolve: true` to get number one's links in the same call.",
         `Source: ${response.urls.page}`,
     );
     return lines.join("\n");
@@ -441,8 +507,14 @@ export function formatDiscoverResponse(result: DiscoverMusicResult, requestedLim
         return `❌ Discovery failed: ${result.error ?? "Unknown error"}`;
     }
 
-    const limit = clampLimit(requestedLimit, 10, 30);
+    const limit = discoverLimit(requestedLimit);
+    const body = formatMode(result, limit);
+    if (result.top) return `${body}\n\n## Number one — links\n\n${formatMusicLookup(result.top)}`;
+    if (result.topNote) return `${body}\n\nℹ️ ${result.topNote}`;
+    return body;
+}
 
+function formatMode(result: DiscoverMusicResult, limit: number): string {
     if (result.mode === "wall" && result.wall) {
         return formatWallResponse(result.wall, limit);
     }

@@ -78,3 +78,46 @@ export const RootVineResponseV1Schema = z.object({
 export function validateResponse(data: unknown) {
     return RootVineResponseV1Schema.safeParse(data);
 }
+
+/**
+ * BeatsVine's catalogue search (/api/v1/search). Not a stable public contract,
+ * so only the envelope must hold; rows are checked one at a time and a bad row
+ * is skipped rather than failing the whole search.
+ */
+export const SearchResponseSchema = z.looseObject({
+    results: z.array(z.unknown()),
+});
+
+/**
+ * BeatsVine's artist page (/artist/<slug>/json). Only what RootVine reads is
+ * checked; releases are checked one at a time and a bad one is skipped.
+ */
+export const ArtistResponseSchema = z.looseObject({
+    url: z.string().nullish(),
+    artist: z.looseObject({
+        slug: z.string(),
+        name: z.string(),
+        genres: z.array(z.string()).nullish(),
+    }),
+    discography: z.array(z.unknown()).nullish(),
+    discography_source: z.string().nullish(),
+    display_preference: z.looseObject({ sparse_fallback_applied: z.boolean().nullish() }).nullish(),
+});
+
+export const ArtistReleaseSchema = z.looseObject({
+    title: z.string(),
+    type: z.string().nullish(),
+    // A number, or text such as "2019": BeatsVine sends both.
+    year: z.union([z.number(), z.string()]).nullish(),
+    slug: z.string().nullish(),
+    page_url: z.string().nullish(),
+    json_url: z.string().nullish(),
+    cover_url: z.string().nullish(),
+});
+
+export const SearchRowSchema = z.looseObject({
+    title: z.string(),
+    artist: z.string().nullish(),
+    coverUrl: z.string().nullish(),
+    existingSlug: z.string().nullish(),
+});

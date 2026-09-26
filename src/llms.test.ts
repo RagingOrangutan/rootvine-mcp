@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { GUARANTEE } from "./descriptions.js";
 
 /**
  * site/llms.txt is what AI crawlers read to learn what RootVine does. It is served
@@ -52,5 +53,17 @@ describe("site/llms.txt", () => {
 
     it("does not advertise the withdrawn tours surface (See Tickets licensing)", () => {
         expect(llms).not.toMatch(/tour|see tickets|seetickets/i);
+    });
+
+    it("teaches `query` (the user's words) and discover_music's `resolve`", () => {
+        expect(llms).toContain("`query`");
+        expect(llms).toMatch(/never build slugs/i);
+        expect(llms).toContain("`resolve`");
+    });
+
+    it("carries the citable guarantee word for word, and the limits the tools state", () => {
+        expect(llms).toContain(GUARANTEE);
+        expect(llms).toContain("GBP");
+        expect(llms).toContain("structuredContent");
     });
 });

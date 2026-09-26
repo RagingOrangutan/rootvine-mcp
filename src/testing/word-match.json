@@ -1,0 +1,29 @@
+{
+    "about": "RootVine's word-match rule: is the song a live lookup resolved to a real answer for the words asked? Shared with BeatsVine's demand ledger (agreed 2026-09-26), which counts an ask only when this rule passes. Source of truth: RootVine src/suggest.ts, similarity(...).strong. `asked` is the slug RootVine sends to BeatsVine's live lookup; `title` and `artist` are what the lookup resolved to. Change the rule on either side only with this file.",
+    "rule": [
+        "Words: the slug's hyphen-separated words, folded like BeatsVine's slugify (lowercase, Latin accents removed, apostrophes dropped: don't = dont). The resolved title and artist are folded the same way, splitting on spaces, hyphens and symbols.",
+        "Glue words never count on either side: the a an by and feat ft featuring x vs with on to for is it (unless a name is nothing but glue, when its words are kept).",
+        "Optional words need not match (but count when they do): song songs track tracks single album albums lp ep vinyl cd cds record records cassette music, and years 1900-2099. If every asked word is optional, they are all required.",
+        "Two words are the same when equal, or, for Latin letters only and words of 4+ letters, at most 1 edit apart (2 for 8+ letters); swapping two neighbouring letters is one edit. Digits and non-Latin scripts must match exactly.",
+        "Strong when all of: at least 60% of the non-optional asked words appear in title + artist; at least one title word is matched by an asked word that is not part of the artist's name; and, if only one non-optional word was asked, every title word was asked."
+    ],
+    "cases": [
+        { "asked": "ed-sheeran-galway-girl", "title": "Galway Girl", "artist": "Ed Sheeran", "strong": true, "why": "every word matches" },
+        { "asked": "galway-girl-by-ed-sheeran", "title": "The Galway Girl", "artist": "Steve Earle", "strong": false, "why": "2 of 4 words: below 60% (seen live)" },
+        { "asked": "ed-sheren-galway-gurl", "title": "Galway Girl", "artist": "Ed Sheeran", "strong": true, "why": "3 of 4: gurl is one edit from girl; sheren is two from sheeran and does not count (seen live)" },
+        { "asked": "bohemain-rhapsody", "title": "Bohemian Rhapsody", "artist": "Queen", "strong": true, "why": "swapped neighbouring letters are one edit (seen live)" },
+        { "asked": "bad-guy-billie-eilish", "title": "bad guy", "artist": "Billie Eilish", "strong": true, "why": "case does not matter" },
+        { "asked": "queen-dont-stop-me-now", "title": "Don't Stop Me Now", "artist": "Queen", "strong": true, "why": "apostrophes fold away" },
+        { "asked": "stromae-ta-fete", "title": "Ta fête", "artist": "Stromae", "strong": true, "why": "accents fold away" },
+        { "asked": "the-beatles-abbey-road-vinyl-1969", "title": "Abbey Road", "artist": "The Beatles", "strong": true, "why": "format words and years are optional; 'the' is glue" },
+        { "asked": "music-madonna", "title": "Music", "artist": "Madonna", "strong": true, "why": "an optional word still matches the title" },
+        { "asked": "hello", "title": "Hello", "artist": "Adele", "strong": true, "why": "one word asked, and it is the whole title" },
+        { "asked": "queen", "title": "Dancing Queen", "artist": "ABBA", "strong": false, "why": "one word asked must be the whole title" },
+        { "asked": "taylor-swift", "title": "Shake It Off", "artist": "Taylor Swift", "strong": false, "why": "only the artist was asked for" },
+        { "asked": "taylor-swift", "title": "1989 (Taylor's Version)", "artist": "Taylor Swift", "strong": false, "why": "the title only echoes the artist's name (seen live)" },
+        { "asked": "ed-sheeran-galway-girl-live-acoustic-version", "title": "Galway Girl", "artist": "Ed Sheeran", "strong": false, "why": "4 of 7 words: below 60%" },
+        { "asked": "adele-25", "title": "21", "artist": "Adele", "strong": false, "why": "numbers must match exactly: 25 is not 21" },
+        { "asked": "ヨルシカ-火星人", "title": "火星人", "artist": "ヨルシカ", "strong": true, "why": "non-Latin words match exactly" },
+        { "asked": "ヨルシカ-火星", "title": "火星人", "artist": "ヨルシカ", "strong": false, "why": "no typo allowance outside Latin letters" }
+    ]
+}

@@ -29,6 +29,24 @@ describe("version", () => {
         expect(hosted.toLowerCase()).toContain("rootvine");
     });
 
+    // Agreed with BeatsVine 2026-09-26: its demand ledger (which decides when
+    // to generate a missing page) ignores any User-Agent containing "(check)",
+    // so RootVine's release live-checks never count as demand.
+    it("marks release-check runs so BeatsVine's demand ledger can skip them", () => {
+        expect(userAgentFor("stdio", { check: true })).toBe(`rootvine-mcp/${pkg.version} (check)`);
+        expect(userAgentFor("stdio", { check: true }).toLowerCase()).toContain("rootvine");
+        expect(userAgentFor("stdio")).not.toContain("(check)");
+    });
+
+    it("matches both versions in server.json, which the MCP Registry publishes", () => {
+        const serverJson = JSON.parse(
+            readFileSync(fileURLToPath(new URL("../server.json", import.meta.url)), "utf8"),
+        ) as { version: string; packages: Array<{ version: string }> };
+
+        expect(serverJson.version).toBe(pkg.version);
+        expect(serverJson.packages.map((p) => p.version)).toEqual([pkg.version]);
+    });
+
     it("matches the version recorded in package-lock.json", () => {
         // The lockfile drifted to 1.0.4 while the package shipped 1.1.0 — npm
         // only rewrites it on install, so a version bump alone leaves it stale.

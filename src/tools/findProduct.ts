@@ -2,125 +2,81 @@
  * find_product — Smart router that resolves any product query
  *
  * Routes by category:
- * - "music" → resolve_music (BeatsVine)
- * - "game"  → resolve_game (MainMenu)
- * - auto    → attempts to detect category from the query
+ * - "music" → the music lookup (BeatsVine)
+ * - "game"  → the games lookup (MainMenu — not live yet: "coming soon")
+ * - auto    → detected from the words
  *
  * This is the recommended entry point for agents that don't know
  * which vertical they need.
  */
 
-import { resolveMusic, formatMusicResponse } from "./resolveMusic.js";
-import { resolveGame, formatGameResponse } from "./resolveGame.js";
-import { slugify } from "../slugify.js";
-import { searchExistingSlug } from "./searchBeatsVine.js";
-import type { RootVineResponseV1 } from "../types.js";
+import { lookupMusic, formatMusicLookup, type MusicLookupAnswer } from "./lookupMusic.js";
+import { lookupGame, formatGameLookup, type GameLookupAnswer } from "./resolveGame.js";
 
 export interface FindProductInput {
     query: string;
     category?: "music" | "game" | "auto";
 }
 
-export interface FindProductResult {
-    success: boolean;
-    category: "music" | "game";
-    response?: RootVineResponseV1;
-    formatted: string;
-    error?: string;
-}
+export type FindProductResult =
+    | { ok: true; category: "music"; detected: boolean; music: MusicLookupAnswer }
+    | { ok: true; category: "game"; detected: boolean; game: GameLookupAnswer }
+    | { ok: false; category: "music" | "game"; error: string };
+
+export type FindProductAnswer = Extract<FindProductResult, { ok: true }>;
+
+/** Stores, consoles and add-ons: a game, whatever else the query says. */
+const GAME_SIGNALS = [
+    "video game", "dlc", "expansion", "season pass", "early access", "goty", "gameplay", "steam",
+    "epic games", "gog", "xbox", "playstation", "ps3", "ps4", "ps5", "nintendo", "switch 2", "on switch",
+    "for switch", "switch game", "pc game",
+];
+
+/** Words that mean music. */
+const MUSIC_SIGNALS = [
+    "song", "songs", "album", "albums", "track", "tracks", "single", "ep", "lp", "vinyl", "cd", "cds",
+    "cassette", "record", "records", "listen", "stream", "streaming", "spotify", "apple music", "itunes",
+    "tidal", "deezer", "bandcamp", "discogs", "soundcloud", "remix", "acoustic", "feat", "ft", "featuring",
+    "lyrics", "band", "singer", "rapper", "discography", "mixtape", "soundtrack", "ost", "by",
+];
+
+/** Game words that music titles use too ("Game of Thrones soundtrack"): only when nothing says music. */
+const WEAK_GAME_SIGNALS = ["game", "games", "gaming", "console"];
 
 /**
- * Simple category detection from query text.
- * In Phase 2+, this will use the central RootVine resolver.
+ * Music or game? A store, console or add-on means a game ("Elden Ring DLC by
+ * FromSoftware"); otherwise music words win — "Abbey Road deluxe edition
+ * vinyl" is music — and only then the weaker game words. Only whole words
+ * count, so "Switchfoot" is a band and "Steamboat Willie" is not Steam.
+ * Anything unclear is music: it is the only category that is live.
  */
 export function detectCategory(query: string): "music" | "game" {
-    const q = query.toLowerCase();
-
-    // Game indicators
-    const gameKeywords = [
-        "game", "dlc", "expansion", "steam", "xbox", "playstation",
-        "ps5", "ps4", "nintendo", "switch", "pc game", "goty",
-        "edition", "gameplay",
-    ];
-    for (const kw of gameKeywords) {
-        if (q.includes(kw)) return "game";
-    }
-
-    // Music indicators (default — music is more common for now)
-    const musicKeywords = [
-        "song", "album", "track", "listen", "stream", "spotify",
-        "apple music", "vinyl", "single", "ep ", "lp ",
-        "feat", "ft.", "remix", "acoustic",
-    ];
-    for (const kw of musicKeywords) {
-        if (q.includes(kw)) return "music";
-    }
-
-    // Default to music (BeatsVine is the first tree)
+    const words = ` ${query.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+    const says = (phrase: string) => words.includes(` ${phrase} `);
+    if (GAME_SIGNALS.some(says)) return "game";
+    if (MUSIC_SIGNALS.some(says)) return "music";
+    if (WEAK_GAME_SIGNALS.some(says)) return "game";
     return "music";
 }
 
 export async function findProduct(input: FindProductInput): Promise<FindProductResult> {
-    const { query } = input;
-    const category = input.category === "auto" || !input.category
-        ? detectCategory(query)
-        : input.category;
-
-    const constructed = slugify(query);
-
-    // A query of only punctuation or symbols slugifies to "", which would
-    // otherwise request "<base>//json" and report the resulting HTML as a
-    // BeatsVine outage. Fail honestly instead (Commandment 9). Checked BEFORE
-    // the catalogue lookup so junk queries cost no request at all.
-    if (!constructed) {
-        const error = `"${query}" could not be turned into a lookup — it has no letters or digits to build a slug from.`;
-        return {
-            success: false,
-            category,
-            formatted: `❌ ${error}`,
-            error,
-        };
-    }
-
-    // Prefer the catalogue's canonical slug over one we build. Construction
-    // cannot reproduce a pre-2026-08-28 slug ("stromae-ta-fte") or a page whose
-    // title carries a suffix ("…-2005-remaster"), and landing on the wrong slug
-    // silently downgrades the answer to an on-demand "partial" result.
-    // Falls back to construction whenever the catalogue has no page or is
-    // unreachable, so this can only improve a lookup, never break one.
-    const canonical = category === "music" ? await searchExistingSlug(query) : null;
-    const slug = canonical ?? constructed;
-
-    if (category === "music") {
-        const result = await resolveMusic({ slug });
-        return {
-            success: result.success,
-            category: "music",
-            response: result.response,
-            formatted: result.response
-                ? formatMusicResponse(result.response)
-                : `❌ ${result.error || "Unknown error"}`,
-            error: result.error,
-        };
-    }
+    const detected = !input.category || input.category === "auto";
+    const category = detected ? detectCategory(input.query) : (input.category as "music" | "game");
 
     if (category === "game") {
-        const result = await resolveGame({ slug });
-        return {
-            success: result.success,
-            category: "game",
-            response: result.response,
-            formatted: result.response
-                ? formatGameResponse(result.response)
-                : `❌ ${result.error || "Unknown error"}`,
-            error: result.error,
-        };
+        const game = await lookupGame(input.query);
+        return game.ok ? { ok: true, category, detected, game: game.answer } : { ok: false, category, error: game.error };
     }
+    const music = await lookupMusic(input.query);
+    return music.ok ? { ok: true, category, detected, music: music.answer } : { ok: false, category, error: music.error };
+}
 
-    return {
-        success: false,
-        category: "music",
-        formatted: `❌ Unknown category: ${category}`,
-        error: `Unknown category: ${category}`,
-    };
+export function formatFindProduct(result: FindProductAnswer): string {
+    if (result.category === "game") {
+        const routed = result.detected
+            ? "Routed to games: the words mention a game, console or store — set `category` to 'music' if that is wrong.\n\n"
+            : "";
+        return routed + formatGameLookup(result.game);
+    }
+    return formatMusicLookup(result.music);
 }

@@ -16,17 +16,24 @@ Outbound links are returned as tracked click URLs, and some carry affiliate code
 
 ## Tools
 
-- `find_product`: start here when the category is unclear. Takes a free-text query and routes it to the right resolver, looking up the canonical page before falling back to a constructed one.
-- `resolve_music`: where to stream, buy digitally, or collect a track or album on physical media — streaming services, digital stores, vinyl, CD and collector listings, ranked.
-- `resolve_artist`: an artist's profile and full discography. Each release comes back with a slug that `resolve_music` turns into links. Physical formats are album-level, so this is the route to collector editions.
-- `discover_music`: browse curated collections — charts, genre walls, moods, editorial playlists and spotlights — plus frozen chart snapshots back to 1946. Answers questions like "what was number one in 1994".
-- `resolve_game`: registered but not yet active. Returns an explicit "coming soon" response until the games source is live.
+Pass the user's own words as `query` ("galway girl by ed sheeran", "what albums has Stromae released") — never build slugs. RootVine finds the page. `slug` still works as a deprecated alias for `query`.
+
+- `find_product`: start here when the category is unclear. Reads music or games from the words (keyword-based — set `category` when you know it) and answers in that tool's shape.
+- `resolve_music`: where to stream, buy digitally, or collect a track or album on physical media — streaming services, digital stores, vinyl, CD and collector listings, ranked. A typo is corrected and flagged in `resolved_as`; a miss returns `did_you_mean`: close matches, each with a `query` to pass back. A title several artists recorded, asked without an artist, returns those recordings to choose from rather than one picked at random.
+- `resolve_artist`: an artist's profile and full discography, found by name. Each release comes back with a `query` that `resolve_music` turns into links. Physical formats are album-level, so this is the route to collector editions.
+- `discover_music`: browse curated collections — charts, genre walls, moods, editorial playlists and spotlights — plus frozen chart snapshots back to 1946. Answers questions like "what was number one in 1994"; add `resolve` (true) with a `wall` to get number one's links in the same call.
+- `resolve_game`: registered but not yet active. Returns an explicit "coming soon" response, with no links or prices, until the games source is live.
 
 ## How to read a response
 
+RootVine never fabricates. Every link existed at resolved_at.
+
+- Every answer comes as text plus `structuredContent` (MCP structured output) carrying the same facts: `status`, `results`, `partial_sources`, `resolved_as`, `did_you_mean`, `resolved_at` and `response_id`. Failures are plain-text errors.
 - Every ranked result carries a structured `ranking_reason` with a code and a plain summary, so the ordering can be explained to a user rather than taken on trust.
-- `status` is one of `success`, `partial`, `no_results` or `error`. A `partial` result is real but incomplete — some sources did not answer — and is labelled as such rather than presented as complete.
+- `status` is `success`, `partial` or `no_results`. A `partial` result is real but incomplete — `partial_sources` says which sources did not answer — and is labelled as such rather than presented as complete. On `no_results`, tell the user plainly and never fall back to guessing a link.
+- When `resolved_as.corrected` is true, the answer is for different words than were asked: tell the user which recording is shown.
 - Missing prices are `null`, never estimated. Zero results are an empty list, never fabricated.
+- Limits: UK-focused stores and prices in GBP; music only today.
 - Prefer `click_url` over `url` when both are present.
 
 ## Optional

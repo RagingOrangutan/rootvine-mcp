@@ -101,11 +101,11 @@ const INITIALIZE = {
     params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test-client", version: "9.9" } },
 };
 
-const CALL_RESOLVE_MUSIC = (slug: string) => ({
+const CALL_RESOLVE_MUSIC = (query: string) => ({
     jsonrpc: "2.0",
     id: 2,
     method: "tools/call",
-    params: { name: "resolve_music", arguments: { slug } },
+    params: { name: "resolve_music", arguments: { query } },
 });
 
 describe("the MCP endpoint", () => {
@@ -122,14 +122,29 @@ describe("the MCP endpoint", () => {
         ]);
     });
 
-    it("answers resolve_music with the tracked link from BeatsVine", async () => {
+    it("answers resolve_music with the tracked link, in text and in structured content", async () => {
         const seen = stubBeatsVine();
         const { base } = await start();
         const client = await mcpClient(base);
-        const result = await client.callTool({ name: "resolve_music", arguments: { slug: "ed-sheeran-galway-girl" } });
+        // Listing first makes the SDK client check structuredContent against the advertised schema.
+        await client.listTools();
+        const result = await client.callTool({ name: "resolve_music", arguments: { query: "ed-sheeran-galway-girl" } });
         const text = (result.content as Array<{ type: string; text: string }>)[0].text;
         expect(text).toContain("https://www.beatsvine.com/r/AAAAAAAAAAAAbbbbbbbbbbbbbbbb");
+        expect(result.structuredContent).toMatchObject({
+            status: "success",
+            results: [{ click_url: "https://www.beatsvine.com/r/AAAAAAAAAAAAbbbbbbbbbbbbbbbb" }],
+        });
         expect(seen).toContain("https://www.beatsvine.com/ed-sheeran-galway-girl/json");
+    });
+
+    it("still accepts the deprecated `slug` from older clients", async () => {
+        stubBeatsVine();
+        const { base } = await start();
+        const client = await mcpClient(base);
+        const result = await client.callTool({ name: "resolve_music", arguments: { slug: "ed-sheeran-galway-girl" } });
+        expect(result.isError).toBeFalsy();
+        expect((result.content as Array<{ text: string }>)[0].text).toContain("/r/");
     });
 
     it("is stateless: answers without handing out a session", async () => {

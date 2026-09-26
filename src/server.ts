@@ -9,19 +9,46 @@
  * answers are the same everywhere. The HTTP transport is stateless and builds a
  * fresh server per request, which is why this is a factory, not a singleton.
  *
- * Phase 0: thin client. The tools call Vine /json endpoints directly; all
- * ranking happens server-side at the Vine (V1 spec §8: "Never ship ranking
- * logic inside the npm package").
+ * Phase 0: thin client. Ranking happens server-side at the Vine (V1 spec §8:
+ * "Never ship ranking logic inside the npm package"). What RootVine adds is
+ * finding the right page for the user's words — see tools/lookupMusic.ts.
+ *
+ * Every answer carries text for people and structuredContent for agents
+ * (structured.ts). Failures are text-only errors.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { resolveMusic, formatMusicResponse } from "./tools/resolveMusic.js";
-import { resolveGame, formatGameResponse } from "./tools/resolveGame.js";
-import { findProduct } from "./tools/findProduct.js";
+import { lookupMusic, formatMusicLookup } from "./tools/lookupMusic.js";
+import { lookupGame, formatGameLookup } from "./tools/resolveGame.js";
+import { findProduct, formatFindProduct } from "./tools/findProduct.js";
 import { discoverMusic, formatDiscoverResponse } from "./tools/discoverMusic.js";
-import { resolveArtist, formatArtistResponse } from "./tools/resolveArtist.js";
+import { lookupArtist, formatArtistLookup } from "./tools/resolveArtist.js";
+import { pickQueryArg } from "./query.js";
+import { DESCRIPTIONS, PARAMS } from "./descriptions.js";
+import {
+    ARTIST_RELEASE_LIMIT,
+    ArtistAnswerSchema,
+    DiscoverAnswerSchema,
+    GameAnswerSchema,
+    MusicAnswerSchema,
+    ProductAnswerSchema,
+    artistStructured,
+    discoverStructured,
+    fail,
+    gameStructured,
+    musicStructured,
+    ok,
+    productStructured,
+    structuredOr,
+} from "./structured.js";
 import { PACKAGE_VERSION } from "./version.js";
+
+/** Every tool only reads, and reaches out to BeatsVine (or, one day, MainMenu). */
+const READ_ONLY = { readOnlyHint: true, openWorldHint: true } as const;
+
+/** Plenty for any real question; stops a megabyte of text reaching BeatsVine. */
+const MAX_QUERY = 500;
 
 export function createRootVineServer(): McpServer {
     const server = new McpServer({
@@ -35,35 +62,21 @@ export function createRootVineServer(): McpServer {
     server.registerTool(
         "resolve_music",
         {
-            description: "Find where to stream, buy, or collect a song or album. Returns ranked results covering streaming (Spotify, Apple Music, Tidal, YouTube Music), digital purchase (iTunes, Amazon MP3, Bandcamp), and physical media (vinyl, CD via Amazon, Discogs). Use when a user asks about music — whether they want to listen, own digitally, or find a collector edition. Ranked by trust × price × availability, never by commission.",
+            title: "Music links",
+            description: DESCRIPTIONS.resolve_music,
             inputSchema: {
-                slug: z
-                    .string()
-                    .describe("The BeatsVine page slug for the track or album. Format: artist-name-song-title, lowercase and hyphenated. Slugs keep letters of any script, so non-Latin titles are valid: 'ed-sheeran-galway-girl', 'ヨルシカ-火星人'. Latin accents are folded to their base letter ('Rosalía Despechá' → 'rosalia-despecha'), and punctuation is dropped. Pass the slug undecoded — do not percent-encode it yourself."),
+                query: z.string().max(MAX_QUERY).optional().describe(PARAMS.musicQuery),
+                slug: z.string().max(MAX_QUERY).optional().describe(PARAMS.slug),
             },
+            outputSchema: MusicAnswerSchema,
+            annotations: READ_ONLY,
         },
-        async ({ slug }) => {
-            const result = await resolveMusic({ slug });
-
-            if (!result.success || !result.response) {
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: `Could not resolve music: ${result.error || "Unknown error"}`,
-                        },
-                    ],
-                };
-            }
-
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: formatMusicResponse(result.response),
-                    },
-                ],
-            };
+        async (args) => {
+            const query = pickQueryArg(args);
+            if (!query.ok) return fail(query.message);
+            const lookup = await lookupMusic(query.value);
+            if (!lookup.ok) return fail(`Could not resolve music: ${lookup.error}`);
+            return ok(formatMusicLookup(lookup.answer), musicStructured(lookup.answer));
         },
     );
 
@@ -73,35 +86,21 @@ export function createRootVineServer(): McpServer {
     server.registerTool(
         "resolve_game",
         {
-            description: "Find where to buy a video game at the best price across trusted stores (Steam, PlayStation, Xbox, Nintendo, Epic, GOG, Humble, Fanatical). Returns ranked results with prices, editions, and DLC info. Note: the games vertical is launching soon — this tool currently returns a 'coming soon' message. Prefer `resolve_music` or `find_product` for music queries.",
+            title: "Game prices (coming soon)",
+            description: DESCRIPTIONS.resolve_game,
             inputSchema: {
-                slug: z
-                    .string()
-                    .describe("The game slug. Format: game-title (lowercase, hyphenated). Example: 'elden-ring'"),
+                query: z.string().max(MAX_QUERY).optional().describe(PARAMS.gameQuery),
+                slug: z.string().max(MAX_QUERY).optional().describe(PARAMS.slug),
             },
+            outputSchema: GameAnswerSchema,
+            annotations: READ_ONLY,
         },
-        async ({ slug }) => {
-            const result = await resolveGame({ slug });
-
-            if (!result.success || !result.response) {
-                return {
-                    content: [
-                        {
-                            type: "text" as const,
-                            text: `Could not resolve game: ${result.error || "Unknown error"}`,
-                        },
-                    ],
-                };
-            }
-
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: formatGameResponse(result.response),
-                    },
-                ],
-            };
+        async (args) => {
+            const query = pickQueryArg(args);
+            if (!query.ok) return fail(query.message);
+            const lookup = await lookupGame(query.value);
+            if (!lookup.ok) return fail(`Could not resolve game: ${lookup.error}`);
+            return ok(formatGameLookup(lookup.answer), gameStructured(lookup.answer));
         },
     );
 
@@ -111,31 +110,19 @@ export function createRootVineServer(): McpServer {
     server.registerTool(
         "find_product",
         {
-            description: "Smart router — finds the best place to stream, buy, or collect any supported product. Automatically detects the product category and routes to the right resolver. Music is live (stream, digital purchase, vinyl, CD, collector editions). Games, books, films, podcasts, and live event tickets are rolling out. Use this when the query is ambiguous or when music could be streamed, purchased digitally, or found on physical media.",
+            title: "Find a product",
+            description: DESCRIPTIONS.find_product,
             inputSchema: {
-                query: z
-                    .string()
-                    .describe("A natural language product query. Examples: 'Aphex Twin Windowlicker', 'Elden Ring DLC', 'where can I stream Bad Guy by Billie Eilish'"),
-                category: z
-                    .enum(["music", "game", "auto"])
-                    .optional()
-                    .describe("Product category. Use 'auto' (default) to let RootVine detect the category automatically."),
+                query: z.string().max(MAX_QUERY).describe(PARAMS.findQuery),
+                category: z.enum(["music", "game", "auto"]).optional().describe(PARAMS.category),
             },
+            outputSchema: ProductAnswerSchema,
+            annotations: READ_ONLY,
         },
         async ({ query, category }) => {
-            const result = await findProduct({
-                query,
-                category: category || "auto",
-            });
-
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: result.formatted,
-                    },
-                ],
-            };
+            const result = await findProduct({ query, category: category ?? "auto" });
+            if (!result.ok) return fail(`Could not find product: ${result.error}`);
+            return ok(formatFindProduct(result), productStructured(result));
         },
     );
 
@@ -145,28 +132,21 @@ export function createRootVineServer(): McpServer {
     server.registerTool(
         "resolve_artist",
         {
-            description:
-                "Get an artist's profile and full discography. Use when a user asks what else an artist has made, wants their albums, or is exploring a body of work rather than one song — 'what albums has Stromae released', 'show me Radiohead's discography', 'what else has this artist done'. Returns the artist's genres and every release BeatsVine holds, each with a slug that `resolve_music` turns into stream, purchase and physical-media links. Note that physical formats — vinyl, CD, Discogs listings — live at the ALBUM level, so this is the route to collector editions.",
+            title: "Artist discography",
+            description: DESCRIPTIONS.resolve_artist,
             inputSchema: {
-                slug: z
-                    .string()
-                    .describe(
-                        "The BeatsVine artist slug, lowercase and hyphenated: 'stromae', 'radiohead', 'ed-sheeran'. Slugs keep letters of any script, so non-Latin names are valid. An 'artist/name' form is also accepted, since that is what BeatsVine's search returns for artist hits.",
-                    ),
+                query: z.string().max(MAX_QUERY).optional().describe(PARAMS.artistQuery),
+                slug: z.string().max(MAX_QUERY).optional().describe(PARAMS.slug),
             },
+            outputSchema: ArtistAnswerSchema,
+            annotations: READ_ONLY,
         },
-        async ({ slug }) => {
-            const result = await resolveArtist({ slug });
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: result.response
-                            ? formatArtistResponse(result.response, 30)
-                            : `❌ ${result.error || "Unknown error"}`,
-                    },
-                ],
-            };
+        async (args) => {
+            const query = pickQueryArg(args);
+            if (!query.ok) return fail(query.message);
+            const lookup = await lookupArtist(query.value);
+            if (!lookup.ok) return fail(`Could not resolve artist: ${lookup.error}`);
+            return ok(formatArtistLookup(lookup.answer, ARTIST_RELEASE_LIMIT), artistStructured(lookup.answer));
         },
     );
 
@@ -176,51 +156,26 @@ export function createRootVineServer(): McpServer {
     server.registerTool(
         "discover_music",
         {
-            description:
-                "Browse curated music collections — charts, genre walls, moods, editorial playlists, artist spotlights, and historic charts back to 1946. Use when a user wants to EXPLORE music rather than look up a specific song or album. Examples: 'what's trending this week', 'find electronic music charts', 'show me focus playlists', 'what was number one in 1994', 'what was in the charts the year I was born'. Returns walls (collections) with their slugs, which can then be passed back as the `wall` argument to expand into individual tracks, albums or artists. Each entry includes a BeatsVine page URL whose streaming and purchase links can be fetched via `resolve_music`. Ranked by editorial pinning and refresh freshness, never by commission.",
+            title: "Charts and collections",
+            description: DESCRIPTIONS.discover_music,
             inputSchema: {
                 chamber: z
                     .enum(["by-genre", "for-this-moment", "charts", "by-era", "spotlights"])
                     .optional()
-                    .describe(
-                        "Chamber to browse. Omit for a top-level overview of all chambers and featured walls. 'by-genre' = genre corridors (house, hip-hop, jazz, etc.). 'for-this-moment' = mood and activity walls (chill, focus, workout). 'charts' = live streaming charts. 'by-era' = decades and golden eras. 'spotlights' = editor-led artist features.",
-                    ),
-                wall: z
-                    .string()
-                    .optional()
-                    .describe(
-                        "Wall slug to drill into. If set, returns the wall's track/album/artist entries. Takes priority over `chamber`. Example: 'lastfm-top-electronic-tracks', 'deezer-90s-hits'. Slugs are returned in the foyer and chamber responses.",
-                    ),
-                year: z
-                    .number()
-                    .int()
-                    .min(1946)
-                    .max(2100)
-                    .optional()
-                    .describe(
-                        "Browse archived chart snapshots from this year. Use for questions about the past — 'what was number one in 1994', 'what was in the charts when I was born'. Archives run from 1946 to the present. Returns snapshot slugs; pass one back as `wall` to get the ranked entries, where position 1 is the number one. Takes priority over `chamber`.",
-                    ),
-                limit: z
-                    .number()
-                    .int()
-                    .positive()
-                    .max(30)
-                    .optional()
-                    .describe(
-                        "Max items to return. Default 10, max 30. Applies to walls (foyer/chamber mode), entries (wall mode) or snapshots (year mode).",
-                    ),
+                    .describe(PARAMS.chamber),
+                wall: z.string().max(MAX_QUERY).optional().describe(PARAMS.wall),
+                year: z.number().int().min(1946).max(2100).optional().describe(PARAMS.year),
+                limit: z.number().int().positive().max(30).optional().describe(PARAMS.limit),
+                resolve: z.boolean().optional().describe(PARAMS.resolve),
             },
+            outputSchema: DiscoverAnswerSchema,
+            annotations: READ_ONLY,
         },
-        async ({ chamber, wall, year, limit }) => {
-            const result = await discoverMusic({ chamber, wall, year, limit });
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: formatDiscoverResponse(result, limit),
-                    },
-                ],
-            };
+        async ({ chamber, wall, year, limit, resolve }) => {
+            const result = await discoverMusic({ chamber, wall, year, limit, resolve });
+            if (!result.success) return fail(formatDiscoverResponse(result, limit));
+            // Discovery JSON is passed through unvalidated: shape it, or keep the text.
+            return structuredOr(formatDiscoverResponse(result, limit), () => discoverStructured(result, limit), DiscoverAnswerSchema);
         },
     );
 
