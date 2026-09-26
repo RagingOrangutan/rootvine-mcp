@@ -36,7 +36,7 @@ const BV_ANSWER = {
             click_url: "https://www.beatsvine.com/r/AAAAAAAAAAAAbbbbbbbbbbbbbbbb",
             type: "stream",
             availability: "available",
-            ranking_reason: { code: "FREE_STREAM_T1", summary: "Free stream from an authoritative source", details: {} },
+            ranking_reason: { code: "FREE_STREAM_T1", summary: "Stream with no listed price, Tier 1", details: {} },
         },
     ],
     warnings: [],

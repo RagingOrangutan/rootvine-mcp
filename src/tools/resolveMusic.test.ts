@@ -34,7 +34,7 @@ function makeResponse(overrides: Partial<RootVineResponseV1> = {}): RootVineResp
                 availability: "available",
                 ranking_reason: {
                     code: "FREE_STREAM_T1",
-                    summary: "Free streaming, Tier 1",
+                    summary: "Stream with no listed price, Tier 1",
                     details: { trust_tier: "authoritative" },
                 },
             },
@@ -79,9 +79,21 @@ describe("formatMusicResponse", () => {
         expect(output).toContain("authoritative");
     });
 
-    it("shows Free for stream with no price", () => {
+    // Claude spotted it through the hosted endpoint on 2026-09-26: RootVine
+    // printed "Free" for every stream with no price, but Apple Music and TIDAL
+    // have no free tier. A missing price is not a zero price (Build Brief
+    // guardrail: never fabricate — null price, never a plausible guess).
+    it("never calls a stream free when no price is listed", () => {
         const output = formatMusicResponse(makeResponse());
-        expect(output).toContain("Free");
+        expect(output).not.toMatch(/free/i);
+        expect(output).toContain("Stream — price not listed");
+    });
+
+    it("says the same for a purchase with no price", () => {
+        const resp = makeResponse();
+        resp.results[0].type = "purchase";
+        const output = formatMusicResponse(resp);
+        expect(output).toContain("Buy — price not listed");
     });
 
     it("shows price when present", () => {

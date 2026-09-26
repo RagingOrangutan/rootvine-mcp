@@ -110,9 +110,11 @@ export function formatMusicResponse(response: RootVineResponseV1): string {
 
     // Results
     for (const result of response.results) {
+        // A missing price is not a zero price: Apple Music and TIDAL have no
+        // free tier. Say what we know, never a plausible guess.
         const priceStr = result.price
             ? `${result.price.currency} ${result.price.amount.toFixed(2)}`
-            : result.type === "stream" ? "Free" : "Price unknown";
+            : "price not listed";
 
         const link = result.click_url || result.url; // Always prefer click_url
 

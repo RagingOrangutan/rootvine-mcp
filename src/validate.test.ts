@@ -34,7 +34,7 @@ function makeValidResponse(overrides: Record<string, unknown> = {}) {
                 availability: "available",
                 ranking_reason: {
                     code: "FREE_STREAM_T1",
-                    summary: "Free streaming, Tier 1",
+                    summary: "Stream with no listed price, Tier 1",
                     details: { trust_tier: "authoritative" },
                 },
             },
