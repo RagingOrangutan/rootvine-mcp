@@ -41,6 +41,11 @@ const { tools } = await client.listTools();
 console.log(`${target ?? "local build (stdio)"} — ${server?.name} ${server?.version}, ${tools.length} tools`);
 
 let failures = 0;
+/** Checks that could not run because BeatsVine could not check right now, or a change is not live yet. */
+let waits = 0;
+
+/** BeatsVine's own "could not check" (503 SOURCE_ERROR etc.): RootVine is right to pass it on. */
+const couldNotCheck = (r) => r.result?.isError === true && /worth retrying|did not answer in time/.test(r.text);
 
 /** One tool call, timed. A thrown error (e.g. structuredContent the schema rejects) is a failure. */
 async function call(name, args) {
@@ -59,10 +64,17 @@ function report(id, label, passed, ms, budget, detail = "") {
     console.log(`${passed ? "PASS" : "FAIL"} ${id.padEnd(4)} ${label} — ${ms} ms${slow}${detail ? ` — ${detail}` : ""}`);
 }
 
+function wait(id, label, ms, why) {
+    waits++;
+    console.log(`WAIT ${id.padEnd(4)} ${label} — ${ms} ms — ${why} (not a RootVine fault; run again later)`);
+}
+
 async function check(id, label, name, args, expectation, budget = HIT_MS) {
     const r = await call(name, args);
     if (r.thrown) return report(id, label, false, r.ms, budget, `threw: ${r.thrown.message}`);
+    if (r.result.isError && !expectation.allowError && couldNotCheck(r)) return wait(id, label, r.ms, `BeatsVine could not check: ${r.text}`);
     if (r.result.isError && !expectation.allowError) return report(id, label, false, r.ms, budget, `isError: ${r.text}`);
+    if (expectation.pending?.(r)) return wait(id, label, r.ms, expectation.pendingWhy);
     let verdict;
     try {
         verdict = expectation.test(r);
@@ -161,6 +173,30 @@ await check("L15", "find_product game → coming soon", "find_product", { query:
     test: ({ data }) => is(data.category, "game", "category") === true && is(data.game.status, "coming_soon", "status"),
 });
 
+// UK charts are published as their headline only (BeatsVine, 2026-09). Until
+// that change is live, the walls carry no `publication` block: WAIT, not FAIL.
+const ukNotLive = ({ data }) => !data?.wall?.publication || data.wall.publication.mode === "full";
+const UK_PENDING = "BeatsVine's UK headline-only change is not live yet";
+
+await check("L17", "UK 1994 year-end → its number one only, with the full chart's address", "discover_music", { wall: "bv-year-end-uk-singles-1994" }, {
+    pending: ukNotLive,
+    pendingWhy: UK_PENDING,
+    test: ({ data }) =>
+        (is(data.wall.publication.mode, "headline", "publication.mode") === true &&
+            is(data.entries.length, 1, "entries") === true &&
+            (typeof data.wall.publication.full_chart_url === "string" || "no full_chart_url")),
+    note: ({ data }) => `${data.entries[0]?.artist} — ${data.entries[0]?.title}`,
+});
+
+await check("L18", "UK 1990s year by year → no single number one, nothing fetched", "discover_music", { wall: "bv-songs-of-the-1990s-uk", resolve: true }, {
+    pending: ukNotLive,
+    pendingWhy: UK_PENDING,
+    test: ({ data }) =>
+        (is(data.wall.publication.mode, "yearly-number-ones", "publication.mode") === true &&
+            (data.top === null || "top should be null") === true &&
+            (/no single number one/.test(data.top_note ?? "") || "note should say there is no single number one")),
+});
+
 for (const [label, args] of [["no query → error", {}], ["query and slug → error", { query: "a b", slug: "c-d" }]]) {
     await check("L16", label, "resolve_music", args, {
         allowError: true,
@@ -169,5 +205,6 @@ for (const [label, args] of [["no query → error", {}], ["query and slug → er
 }
 
 await client.close();
-console.log(failures === 0 ? "\nAll live checks passed." : `\n${failures} live check(s) FAILED.`);
+const waited = waits > 0 ? ` ${waits} check(s) had to WAIT — run again before trusting a release.` : "";
+console.log(failures === 0 ? `\nAll live checks passed.${waited}` : `\n${failures} live check(s) FAILED.${waited}`);
 process.exit(failures === 0 ? 0 : 1);

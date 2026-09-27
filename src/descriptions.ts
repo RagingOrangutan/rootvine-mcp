@@ -52,7 +52,7 @@ export const PARAMS = {
     category: "Set it when you know it; 'auto' (the default) reads it from the words.",
     chamber:
         "Chamber to browse; omit for an overview of all chambers and featured walls. 'by-genre' = genre corridors. 'for-this-moment' = moods and activities. 'charts' = live streaming charts. 'by-era' = decades. 'spotlights' = artist features.",
-    wall: "A wall or chart-snapshot slug from an earlier answer (a BeatsVine wall address also works). Lists its entries; position 1 is number one. Takes priority over `chamber` and `year`.",
+    wall: "A wall or chart-snapshot slug from an earlier answer (a BeatsVine wall address also works). Lists its entries; on a ranked chart position 1 is number one. Takes priority over `chamber` and `year`.",
     year: "Chart snapshots from this year (1946 to now), for questions about the past — 'number one in 1994'. Pass a snapshot's slug back as `wall` for its entries. Takes priority over `chamber`.",
     limit: "Max walls, entries or snapshots to return: 10 by default, 30 at most.",
     resolve: "With `wall`: also fetch number one's stream and buy links, in the same call.",

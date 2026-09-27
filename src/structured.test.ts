@@ -412,6 +412,56 @@ describe("discoverStructured", () => {
         expect(DiscoverAnswerSchema.safeParse(data).success).toBe(true);
     });
 
+    // BeatsVine publishes UK charts as their headline only (2026-09): each wall
+    // and year snapshot says how much is published, and where the rest is.
+    it("says how much of a chart is published, and where the full chart is", () => {
+        const publication = {
+            mode: "headline",
+            chart_owner: "Official Charts Company",
+            full_chart_url: "https://www.officialcharts.com/charts/end-of-year-singles-chart/",
+            note: "BeatsVine shows the best-selling single of 1994 only.",
+        };
+        const headline = discoverStructured({ success: true, mode: "wall", wall: { ...wall, publication }, checkedAt: CHECKED_AT });
+        expect(headline.wall?.publication).toEqual(publication);
+        expect(DiscoverAnswerSchema.safeParse(headline).success).toBe(true);
+
+        const full = { mode: "full", chart_owner: null, full_chart_url: null, note: null };
+        expect(discoverStructured({ success: true, mode: "wall", wall: { ...wall, publication: full }, checkedAt: CHECKED_AT }).wall?.publication).toEqual(full);
+        // An older BeatsVine sends no block: say nothing rather than guess.
+        expect(discoverStructured({ success: true, mode: "wall", wall, checkedAt: CHECKED_AT }).wall?.publication).toBeNull();
+        // Only a web address is passed on as the full chart.
+        const odd = discoverStructured({ success: true, mode: "wall", wall: { ...wall, publication: { ...publication, full_chart_url: "javascript:alert(1)" } }, checkedAt: CHECKED_AT });
+        expect(odd.wall?.publication?.full_chart_url).toBeNull();
+
+        const snapshots = discoverStructured({
+            success: true,
+            mode: "archives",
+            checkedAt: CHECKED_AT,
+            archives: {
+                version: 1,
+                type: "discovery-chamber-history",
+                chamber: { slug: "charts", name: "Charts" },
+                filter: { year: 1994 },
+                years: [1994],
+                count: 1,
+                archives: [
+                    {
+                        slug: "bv-year-end-uk-singles-1994",
+                        parent_slug: "bv-year-end-uk-singles",
+                        parent_name: "UK Best-Selling Single of Every Year",
+                        archived_at: "1994-12-31T23:59:59.000Z",
+                        iso_week: "1994-W52",
+                        entry_count: 1,
+                        urls: { page: "https://www.beatsvine.com/walls/bv-year-end-uk-singles-1994", json: "j" },
+                        publication,
+                    },
+                ],
+            },
+        });
+        expect(snapshots.snapshots?.[0].publication).toEqual(publication);
+        expect(DiscoverAnswerSchema.safeParse(snapshots).success).toBe(true);
+    });
+
     it("lists a chamber's walls, and every mode matches the schema", () => {
         const chamber = discoverStructured({
             success: true,

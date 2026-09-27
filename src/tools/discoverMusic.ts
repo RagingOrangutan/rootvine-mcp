@@ -138,6 +138,24 @@ export interface WallResponse {
         og_image?: string;
     };
     entries: WallEntry[];
+    /** How much of the chart BeatsVine publishes (absent before 2026-09). */
+    publication?: WallPublication | null;
+}
+
+/**
+ * How much of a chart BeatsVine publishes. Since 2026-09 UK charts show one
+ * fact each (the Official Charts Company's compilation is protected by
+ * database right), with a link to the owner's full chart:
+ *   "full"               — every entry;
+ *   "headline"           — the chart's number one only;
+ *   "yearly-number-ones" — each year's best seller, oldest first: position 1
+ *                          is the first year, NOT an overall number one.
+ */
+export interface WallPublication {
+    mode: "full" | "headline" | "yearly-number-ones" | "withdrawn" | string;
+    chart_owner: string | null;
+    full_chart_url: string | null;
+    note: string | null;
 }
 
 // ------------------------------------------------------------------
@@ -153,6 +171,8 @@ export interface ArchiveSnapshot {
     iso_week: string;
     entry_count: number;
     urls: { page: string; json: string };
+    /** How much of the snapshot BeatsVine publishes (absent before 2026-09). */
+    publication?: WallPublication | null;
 }
 
 export interface ArchivesResponse {
@@ -263,6 +283,13 @@ async function fetchJson<T>(path: string, signal: AbortSignal): Promise<{ ok: tr
  * either way, with a note saying why the links did not.
  */
 async function resolveTop(wall: WallResponse, deadline: Deadline): Promise<{ top: MusicLookupAnswer | null; note: string | null }> {
+    // A year-by-year list has no overall number one: position 1 is its first year.
+    if (wall.publication?.mode === "yearly-number-ones") {
+        return {
+            top: null,
+            note: "This wall lists each year's best-selling single, oldest first, so it has no single number one — pass an entry's address to resolve_music for its links.",
+        };
+    }
     const first = wall.entries.find((e) => e.position === 1) ?? wall.entries[0];
     if (!first) return { top: null, note: "This wall has no entries." };
 
@@ -366,7 +393,7 @@ function formatWallSummary(wall: WallSummary, index: number): string[] {
     const lines: string[] = [];
     const featured = wall.is_featured ? " ⭐" : "";
     lines.push(`${index + 1}. **${wall.name}**${featured}`);
-    lines.push(`   Slug: \`${wall.slug}\` (${wall.entry_count} entries)`);
+    lines.push(`   Slug: \`${wall.slug}\` (${count(wall.entry_count, "entry", "entries")})`);
     if (wall.description) {
         lines.push(`   ${wall.description}`);
     }
@@ -403,7 +430,8 @@ export function formatArchivesResponse(response: ArchivesResponse, limit: number
     lines.push("");
     shown.forEach((snap, i) => {
         lines.push(`${i + 1}. **${snap.parent_name}**`);
-        lines.push(`   Slug: \`${snap.slug}\` (${snap.entry_count} entries · ${snap.iso_week})`);
+        const only = snap.publication?.mode === "headline" ? " · number one only" : "";
+        lines.push(`   Slug: \`${snap.slug}\` (${count(snap.entry_count, "entry", "entries")} · ${snap.iso_week}${only})`);
         lines.push(`   ${snap.urls.page}`);
     });
     lines.push("");
@@ -475,7 +503,14 @@ export function formatWallResponse(response: WallResponse, limit: number): strin
     }
     lines.push("");
     lines.push(`${response.attribution.verb} ${response.attribution.who}${response.attribution.role ? ` (${response.attribution.role})` : ""}`);
-    lines.push(`${response.entry_count} ${response.entity_type ?? "entries"} · chamber: ${response.chamber ?? "—"}`);
+    const kind = response.entity_type;
+    lines.push(`${kind ? count(response.entry_count, kind) : count(response.entry_count, "entry", "entries")} · chamber: ${response.chamber ?? "—"}`);
+    // A chart published only in part says so, and where the rest is.
+    const publication = response.publication;
+    if (publication && publication.mode !== "full") {
+        if (publication.note) lines.push(publication.note);
+        if (publication.full_chart_url) lines.push(`Full chart: ${publication.full_chart_url}`);
+    }
     lines.push("");
 
     const entries = response.entries.slice(0, limit);
@@ -493,10 +528,17 @@ export function formatWallResponse(response: WallResponse, limit: number): strin
     }
     lines.push(
         "",
-        "Each entry is a BeatsVine page — pass its address to `resolve_music` for the full stream/buy/collect link set, or call `discover_music` with this wall and `resolve: true` to get number one's links in the same call.",
+        publication?.mode === "yearly-number-ones"
+            ? "Each entry is a BeatsVine page — pass its address to `resolve_music` for the full stream/buy/collect link set. This list has one best seller per year, so it has no single number one."
+            : "Each entry is a BeatsVine page — pass its address to `resolve_music` for the full stream/buy/collect link set, or call `discover_music` with this wall and `resolve: true` to get number one's links in the same call.",
         `Source: ${response.urls.page}`,
     );
     return lines.join("\n");
+}
+
+/** "1 track", "100 tracks", "1 entry", "20 entries". */
+function count(n: number, one: string, many = `${one}s`): string {
+    return `${n} ${n === 1 ? one : many}`;
 }
 
 /**

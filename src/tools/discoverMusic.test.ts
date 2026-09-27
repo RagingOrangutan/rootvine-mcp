@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
     discoverMusic,
+    formatArchivesResponse,
     formatDiscoverResponse,
     formatFoyerResponse,
     formatChamberResponse,
@@ -489,5 +490,105 @@ describe("discoverMusic with resolve", () => {
         expect(text).toContain("Billboard Year-End Hot 100 — 1994");
         expect(text).toContain("Number one — links");
         expect(text).toContain("https://www.beatsvine.com/r/testItunes00000000000000000");
+    });
+});
+
+// ------------------------------------------------------------------
+// UK charts published as their headline only (BeatsVine, approved 2026-09-26).
+// The Official Charts Company's compilation is protected by database right,
+// so BeatsVine publishes one fact per UK chart plus a link to the owner, and
+// every wall and year snapshot says so in `publication`. Shapes read from
+// BeatsVine's uk-headline-only branch (src/lib/walls/entryPublication.ts).
+// ------------------------------------------------------------------
+
+describe("charts BeatsVine publishes only in part", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    const headline = {
+        mode: "headline",
+        chart_owner: "Official Charts Company",
+        full_chart_url: "https://www.officialcharts.com/charts/end-of-year-singles-chart/",
+        note: "BeatsVine shows the best-selling single of 1994 only. The full 1994 UK year-end chart is compiled by the Official Charts Company.",
+    };
+    const yearByYear = {
+        mode: "yearly-number-ones",
+        chart_owner: "Official Charts Company",
+        full_chart_url: "https://www.officialcharts.com/charts/end-of-year-singles-chart/",
+        note: "This wall shows the UK's best-selling single of each year only. The full year-end charts are compiled by the Official Charts Company.",
+    };
+    const ukYear = makeWall({
+        slug: "bv-year-end-uk-singles-1994",
+        name: "UK Best-Selling Single of 1994",
+        chamber: "charts",
+        entity_type: "track",
+        entry_count: 1,
+        publication: headline,
+        entries: [{ position: 1, title: "Love Is All Around", artist: "Wet Wet Wet", page_url: "https://www.beatsvine.com/wet-wet-wet-love-is-all-around" }],
+    } as Partial<WallResponse>);
+    const ukDecade = makeWall({
+        slug: "bv-songs-of-the-1990s-uk",
+        name: "UK Best-Selling Singles of the 1990s, Year by Year",
+        chamber: "by-era",
+        entity_type: "track",
+        entry_count: 10,
+        publication: yearByYear,
+        entries: [
+            { position: 1, title: "Unchained Melody", artist: "The Righteous Brothers", page_url: "https://www.beatsvine.com/the-righteous-brothers-unchained-melody" },
+            { position: 2, title: "(Everything I Do) I Do It for You", artist: "Bryan Adams", page_url: "https://www.beatsvine.com/bryan-adams-everything-i-do" },
+        ],
+    } as Partial<WallResponse>);
+
+    it("says only the number one is shown, and where the full chart is", () => {
+        const text = formatWallResponse(ukYear, 10);
+        expect(text).toContain(headline.note);
+        expect(text).toContain(`Full chart: ${headline.full_chart_url}`);
+    });
+
+    it("counts one as one and many as many", () => {
+        expect(formatWallResponse(ukYear, 10)).toContain("1 track ·");
+        expect(formatWallResponse(makeWall({ entry_count: 100 }), 10)).toContain("100 tracks ·");
+        const chamber = makeChamber();
+        chamber.walls[0] = { ...chamber.walls[0], entry_count: 1 };
+        expect(formatChamberResponse(chamber, 10)).toContain("(1 entry)");
+        const archives = {
+            version: 1,
+            type: "discovery-chamber-history",
+            chamber: { slug: "charts", name: "Charts" },
+            filter: { year: 1994 },
+            years: [1994],
+            count: 1,
+            archives: [
+                {
+                    slug: "bv-year-end-uk-singles-1994",
+                    parent_slug: "bv-year-end-uk-singles",
+                    parent_name: "UK Best-Selling Single of Every Year",
+                    archived_at: "1994-12-31T23:59:59.000Z",
+                    iso_week: "1994-W52",
+                    entry_count: 1,
+                    urls: { page: "https://www.beatsvine.com/walls/bv-year-end-uk-singles-1994", json: "j" },
+                    publication: headline,
+                },
+            ],
+        };
+        expect(formatArchivesResponse(archives, 10)).toContain("(1 entry · 1994-W52 · number one only)");
+    });
+
+    it("never calls the first year of a year-by-year list its number one, and fetches nothing for it", async () => {
+        const calls = fakeBeatsVine({ "page:walls/bv-songs-of-the-1990s-uk": { body: ukDecade } });
+        const result = await discoverMusic({ wall: "bv-songs-of-the-1990s-uk", resolve: true });
+        expect(calls).toHaveLength(1);
+        expect(result.top).toBeNull();
+        expect(result.topNote).toMatch(/no single number one/);
+        expect(formatWallResponse(ukDecade, 10)).not.toMatch(/number one's links/);
+        expect(formatWallResponse(ukDecade, 10)).toContain(yearByYear.note);
+    });
+
+    it("still fetches the links of a headline chart's number one", async () => {
+        fakeBeatsVine({
+            "page:walls/bv-year-end-uk-singles-1994": { body: ukYear },
+            "page:wet-wet-wet-love-is-all-around": { body: pageAnswer("Wet Wet Wet", "Love Is All Around") },
+        });
+        const result = await discoverMusic({ wall: "bv-year-end-uk-singles-1994", resolve: true });
+        expect(result.top).toMatchObject({ status: "success", page_url: "https://www.beatsvine.com/wet-wet-wet-love-is-all-around" });
     });
 });

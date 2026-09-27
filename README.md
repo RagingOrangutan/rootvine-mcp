@@ -115,7 +115,7 @@ discover_music { wall: "bv-year-end-hot-100-1994", resolve: true }  → number o
 
 `resolve: true` fetches the page the chart itself names for number one — no search, no guessed name. If those links are slow, the chart still comes back, with a note.
 
-Archives cover Billboard Hot 100, Global Top 100 and UK Singles year-end charts, plus weekly snapshots.
+Archives: the US Billboard Year-End Hot 100 in full, back to 1946, plus weekly snapshots of the live charts. UK year-end charts show their number one only, with a link to the full chart on officialcharts.com (the Official Charts Company's compilation is protected by database right); each wall says so in its `publication` field. Global year and decade walls mirror the US Billboard chart.
 
 ### `find_product`
 

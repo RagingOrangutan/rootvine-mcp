@@ -29,6 +29,7 @@ import {
     type DiscoverMusicResult,
     type WallAttribution,
     type WallEntry,
+    type WallPublication,
     type WallSummary,
 } from "./tools/discoverMusic.js";
 import type { Suggestion } from "./suggest.js";
@@ -225,6 +226,27 @@ export function artistStructured(answer: ArtistLookupAnswer): ArtistAnswer {
 // discover_music
 // ============================================
 
+const PublicationSchema = z
+    .looseObject({
+        mode: z.string(),
+        chart_owner: z.string().nullable(),
+        full_chart_url: z.string().nullable(),
+        note: z.string().nullable(),
+    })
+    .describe(
+        "How much of the chart BeatsVine shows: 'full'; 'headline' — the number one only, the rest at full_chart_url; 'yearly-number-ones' — each year's best seller, no overall number one",
+    );
+
+function publicationOf(publication: WallPublication | null | undefined): z.infer<typeof PublicationSchema> | null {
+    if (!publication || typeof publication.mode !== "string") return null;
+    return {
+        mode: publication.mode,
+        chart_owner: typeof publication.chart_owner === "string" ? publication.chart_owner : null,
+        full_chart_url: absoluteUrl(publication.full_chart_url),
+        note: typeof publication.note === "string" ? publication.note : null,
+    };
+}
+
 const WallSummarySchema = z.looseObject({
     slug: z.string().describe("Pass as `wall` to list its entries"),
     name: z.string(),
@@ -266,6 +288,7 @@ export const DiscoverAnswerSchema = z.looseObject({
             entity_type: z.string().nullable(),
             attribution: z.string().nullable(),
             page_url: z.string(),
+            publication: PublicationSchema.nullable(),
         })
         .optional(),
     entries: z.array(EntrySchema).optional(),
@@ -279,6 +302,7 @@ export const DiscoverAnswerSchema = z.looseObject({
                 week: z.string().nullable(),
                 entry_count: z.number(),
                 page_url: z.string(),
+                publication: PublicationSchema.nullable(),
             }),
         )
         .optional(),
@@ -340,6 +364,7 @@ export function discoverStructured(result: DiscoverMusicResult, requestedLimit?:
                 entity_type: wall.entity_type ?? null,
                 attribution: attributionOf(wall.attribution),
                 page_url: wall.urls.page,
+                publication: publicationOf(wall.publication),
             },
             entries: wall.entries.slice(0, limit).map(entryOf),
             ...resolveParts,
@@ -360,6 +385,7 @@ export function discoverStructured(result: DiscoverMusicResult, requestedLimit?:
                 week: s.iso_week ?? null,
                 entry_count: s.entry_count,
                 page_url: s.urls.page,
+                publication: publicationOf(s.publication),
             })),
             ...resolveParts,
         };
