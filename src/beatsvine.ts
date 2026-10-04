@@ -9,6 +9,7 @@
  */
 
 import { USER_AGENT } from "./version.js";
+import { requesterHeaders } from "./requester.js";
 
 export const BEATSVINE_BASE = "https://www.beatsvine.com";
 
@@ -94,12 +95,23 @@ export type JsonResult =
 export async function getJson(url: string, signal: AbortSignal): Promise<JsonResult> {
     let res: Response;
     let body: string;
+    let current = url;
     try {
-        res = await fetch(url, {
-            headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-            redirect: "follow",
-            signal,
-        });
+        // Redirects are followed by hand so the requester headers (requester.ts:
+        // hosted requests only) are worked out again for every hop — fetch's own
+        // "follow" would carry the shared key on to whatever host a redirect names.
+        for (let hop = 0; ; hop++) {
+            res = await fetch(current, {
+                headers: { "User-Agent": USER_AGENT, Accept: "application/json", ...requesterHeaders(current) },
+                redirect: "manual",
+                signal,
+            });
+            const location = REDIRECT_STATUSES.has(res.status) ? res.headers.get("location") : null;
+            if (!location) break;
+            if (hop >= MAX_REDIRECTS) return { ok: false, status: res.status, error: "BeatsVine redirected too many times" };
+            await res.body?.cancel();
+            current = new URL(location, current).toString();
+        }
         // Read inside the same guard: the time can run out mid-answer too.
         body = await res.text();
     } catch (err) {
@@ -112,8 +124,11 @@ export async function getJson(url: string, signal: AbortSignal): Promise<JsonRes
     } catch {
         return { ok: false, status: res.status, error: `BeatsVine answered HTTP ${res.status} with something that is not JSON` };
     }
-    return { ok: true, status: res.status, finalUrl: res.url || url, data };
+    return { ok: true, status: res.status, finalUrl: res.url || current, data };
 }
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
 
 function unreachable(err: unknown): string {
     const name = (err as { name?: unknown } | null)?.name;

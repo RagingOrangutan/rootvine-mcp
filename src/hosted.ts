@@ -7,10 +7,16 @@
  * Listens on 127.0.0.1:3009 behind nginx (CloudPanel reverse proxy for
  * mcp.rootvine.ai). Environment: PORT, HOST, ROOTVINE_MODE=hosted,
  * ROOTVINE_RATE_LIMIT_PER_MIN (default 120, the V1 spec §6 threshold).
+ *
+ * BeatsVine's demand-ledger secrets (ROOTVINE_REQUESTER_SALT and _KEY, see
+ * requester.ts) come from ~/.rootvine/requester.env (or ROOTVINE_SECRETS_FILE),
+ * never from ecosystem.config.cjs, which is public. Without them the endpoint
+ * still works; BeatsVine then counts every hosted ask as this one server.
  */
 
 import { createHttpServer, hostedConfig } from "./http.js";
 import { PACKAGE_VERSION } from "./version.js";
+import { loadRequesterSecrets } from "./requester.js";
 
 const config = hostedConfig(process.env);
 
@@ -21,10 +27,18 @@ if (!config.trustProxy) {
     console.warn(`[rootvine-mcp] listening on ${config.host}, not loopback: X-Real-IP is ignored and every client shares the proxy's address`);
 }
 
-const server = createHttpServer({ trustProxy: config.trustProxy, rateLimit: config.rateLimit });
+const requester = config.hostedMode ? loadRequesterSecrets(process.env) : null;
+if (config.hostedMode && !requester) {
+    console.warn("[rootvine-mcp] requester headers: off (no secrets file; BeatsVine counts every hosted ask as this server)");
+}
+
+const server = createHttpServer({ trustProxy: config.trustProxy, rateLimit: config.rateLimit, requester });
 
 server.listen(config.port, config.host, () => {
-    console.log(`[rootvine-mcp] v${PACKAGE_VERSION} hosted endpoint on http://${config.host}:${config.port}/mcp`);
+    console.log(
+        `[rootvine-mcp] v${PACKAGE_VERSION} hosted endpoint on http://${config.host}:${config.port}/mcp` +
+            ` (requester headers: ${requester ? "on" : "off"})`,
+    );
 });
 
 function shutdown(signal: string) {

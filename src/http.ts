@@ -7,7 +7,8 @@
  *
  *   POST /mcp     JSON-RPC. A fresh server and transport per request, no
  *                 sessions, plain JSON responses (no event stream to hold open).
- *   GET  /health  what is running, for deploy checks.
+ *   GET  /health  what is running, for deploy checks (and whether the
+ *                 requester headers are on — never their values).
  *   anything else 404; GET or DELETE on /mcp is 405.
  *
  * Guards, in order: the abuse threshold (V1 spec §6, 120/min per client, 429 +
@@ -31,6 +32,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createRootVineServer } from "./server.js";
 import { PACKAGE_VERSION } from "./version.js";
 import { ABUSE_THRESHOLD, createFixedWindowLimiter, rateLimitHeaders } from "./rateLimit.js";
+import { callerFor, requesterContext, type RequesterSecrets } from "./requester.js";
 
 export interface HttpServerOptions {
     /** Requests per window per client. Default: the spec's 120 per minute. */
@@ -43,6 +45,8 @@ export interface HttpServerOptions {
     trustProxy?: boolean;
     /** Where the one-line request log goes. Default console.log. */
     log?: (line: string) => void;
+    /** BeatsVine's demand-ledger secrets (requester.ts). Absent: no requester headers. */
+    requester?: RequesterSecrets | null;
 }
 
 interface LogEntry {
@@ -60,6 +64,7 @@ export function createHttpServer(options: HttpServerOptions = {}): Server {
     const maxBodyBytes = options.maxBodyBytes ?? 64 * 1024;
     const trustProxy = options.trustProxy ?? false;
     const log = options.log ?? ((line: string) => console.log(line));
+    const requester = options.requester ?? null;
     let inFlight = 0;
 
     const server = createServer((req, res) => {
@@ -91,7 +96,12 @@ export function createHttpServer(options: HttpServerOptions = {}): Server {
             if (req.method !== "GET" && req.method !== "HEAD") {
                 return sendJson(res, 405, { error: "method_not_allowed" }, { Allow: "GET, HEAD" });
             }
-            return sendJson(res, 200, { status: "ok", name: "rootvine-mcp", version: PACKAGE_VERSION });
+            return sendJson(res, 200, {
+                status: "ok",
+                name: "rootvine-mcp",
+                version: PACKAGE_VERSION,
+                requester_headers: requester ? "on" : "off",
+            });
         }
 
         if (entry.path !== "/mcp") {
@@ -107,7 +117,8 @@ export function createHttpServer(options: HttpServerOptions = {}): Server {
             );
         }
 
-        const decision = limiter.check(clientKey(req, trustProxy));
+        const client = clientKey(req, trustProxy);
+        const decision = limiter.check(client);
         const limitHeaders = rateLimitHeaders(decision);
         if (!decision.allowed) {
             return sendJson(
@@ -157,7 +168,12 @@ export function createHttpServer(options: HttpServerOptions = {}): Server {
             void mcp.close();
         });
         await mcp.connect(transport);
-        await transport.handleRequest(req, res, body);
+        // Tool calls made while handling this request tell BeatsVine who asked (requester.ts).
+        if (requester) {
+            await requesterContext.run({ secrets: requester, caller: callerFor(client) }, () => transport.handleRequest(req, res, body));
+        } else {
+            await transport.handleRequest(req, res, body);
+        }
     }
 }
 

@@ -8,7 +8,7 @@
  * Not read from package.json at runtime: the published package ships only
  * `dist/`, so a relative read would resolve differently once installed.
  */
-export const PACKAGE_VERSION = "1.4.1";
+export const PACKAGE_VERSION = "1.4.2";
 
 export type TransportMode = "stdio" | "hosted";
 

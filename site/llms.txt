@@ -10,7 +10,7 @@ Outbound links are returned as tracked click URLs, and some carry affiliate code
 
 ## Install
 
-- Hosted, nothing to install: add `https://mcp.rootvine.ai/mcp` as a remote MCP server (streamable HTTP, no login, no key) in any client that accepts one, such as a claude.ai custom connector.
+- Hosted, nothing to install: add `https://mcp.rootvine.ai/mcp` as a remote MCP server (streamable HTTP, no login, no key) in any client that accepts one, such as a claude.ai custom connector. It logs no addresses or queries, and passes BeatsVine only an anonymous id per caller (it changes every three months, and claude.ai counts as one caller), so BeatsVine can count distinct requests for songs it has no page for yet.
 - [npm: rootvine-mcp](https://www.npmjs.com/package/rootvine-mcp): run with `npx -y rootvine-mcp`. Works over stdio in any MCP client.
 - [Source, MIT licence](https://github.com/RagingOrangutan/rootvine-mcp): full source, release notes and issue tracker.
 

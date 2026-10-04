@@ -22,6 +22,8 @@ https://mcp.rootvine.ai/mcp
 
 Add it by URL in any client that accepts a remote MCP server — for example, in claude.ai: **Settings → Connectors → Add custom connector**. No login, no key. The same five tools as the npm package, answering from the same live sources.
 
+Privacy: the hosted endpoint logs which tool was called, never your address or what you asked. When it looks something up on BeatsVine, it passes along an anonymous id for the caller, so BeatsVine can count how many different people asked for a song it has no page for yet. The id is a keyed hash that changes every three months, never an address, and every claude.ai user counts as a single caller. The npm package sends no such id.
+
 ### Claude Desktop (local, via npm)
 
 Add to your Claude Desktop config (`~/.claude/claude_desktop_config.json`):

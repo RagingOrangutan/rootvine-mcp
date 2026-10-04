@@ -4,6 +4,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createHttpServer, hostedConfig, type HttpServerOptions } from "./http.js";
 import { PACKAGE_VERSION } from "./version.js";
+import { requesterId } from "./requester.js";
+
+const SECRETS = { salt: "s".repeat(64), key: "k".repeat(64) };
 
 /**
  * mcp.rootvine.ai — the hosted, streamable-HTTP transport (Build Brief step 2).
@@ -46,7 +49,7 @@ const BV_ANSWER = {
     mcp: { package: "rootvine-mcp", tool_hint: "resolve_music" },
 };
 
-function stubBeatsVine(delayMs = 0) {
+function stubBeatsVine(delayMs = 0, sentHeaders: Array<Record<string, string>> = []) {
     const seen: string[] = [];
     vi.stubGlobal(
         "fetch",
@@ -54,6 +57,7 @@ function stubBeatsVine(delayMs = 0) {
             const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
             if (url.startsWith("http://127.0.0.1")) return realFetch(input, init);
             seen.push(url);
+            sentHeaders.push({ ...((init?.headers as Record<string, string>) ?? {}) });
             if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
             return new Response(JSON.stringify(BV_ANSWER), { status: 200, headers: { "content-type": "application/json" } });
         }),
@@ -178,7 +182,15 @@ describe("health and routing", () => {
         const { base } = await start();
         const res = await realFetch(`${base}/health`);
         expect(res.status).toBe(200);
-        expect(await res.json()).toEqual({ status: "ok", name: "rootvine-mcp", version: PACKAGE_VERSION });
+        expect(await res.json()).toEqual({ status: "ok", name: "rootvine-mcp", version: PACKAGE_VERSION, requester_headers: "off" });
+    });
+
+    it("GET /health says whether the requester headers are on, never their values", async () => {
+        const { base } = await start({ requester: SECRETS });
+        const text = await (await realFetch(`${base}/health`)).text();
+        expect(JSON.parse(text)).toMatchObject({ requester_headers: "on" });
+        expect(text).not.toContain(SECRETS.key);
+        expect(text).not.toContain(SECRETS.salt);
     });
 
     it("anything else is 404", async () => {
@@ -281,6 +293,62 @@ describe("hostedConfig — how the production process is configured", () => {
     it("ignores nonsense and keeps the defaults", () => {
         const c = hostedConfig({ PORT: "abc", ROOTVINE_RATE_LIMIT_PER_MIN: "-5" });
         expect(c).toMatchObject({ port: 3009, rateLimit: { limit: 120 } });
+    });
+});
+
+describe("requester headers for BeatsVine's demand ledger (1.4.2)", () => {
+    const call = (base: string, ip: string) => rpc(base, CALL_RESOLVE_MUSIC("ed-sheeran-galway-girl"), { "x-real-ip": ip });
+
+    it("tells BeatsVine who asked: an anonymous id and the shared key", async () => {
+        const sent: Array<Record<string, string>> = [];
+        stubBeatsVine(0, sent);
+        const { base } = await start({ trustProxy: true, requester: SECRETS });
+        expect((await call(base, "203.0.113.7")).status).toBe(200);
+        expect(sent.length).toBeGreaterThan(0);
+        for (const headers of sent) {
+            expect(headers["x-rootvine-requester"]).toBe(requesterId(SECRETS.salt, "203.0.113.7"));
+            expect(headers["x-rootvine-key"]).toBe(SECRETS.key);
+            expect(headers["x-rootvine-shared"]).toBeUndefined();
+        }
+    });
+
+    it("different callers get different ids", async () => {
+        const sent: Array<Record<string, string>> = [];
+        stubBeatsVine(0, sent);
+        const { base } = await start({ trustProxy: true, requester: SECRETS });
+        await call(base, "203.0.113.7");
+        await call(base, "198.51.100.4");
+        const ids = new Set(sent.map((h) => h["x-rootvine-requester"]));
+        expect(ids.size).toBe(2);
+    });
+
+    it("every claude.ai server address is one shared requester", async () => {
+        const sent: Array<Record<string, string>> = [];
+        stubBeatsVine(0, sent);
+        const { base } = await start({ trustProxy: true, requester: SECRETS });
+        await call(base, "160.79.104.9");
+        await call(base, "160.79.110.200");
+        expect(new Set(sent.map((h) => h["x-rootvine-requester"]))).toEqual(new Set([requesterId(SECRETS.salt, "platform:anthropic")]));
+        expect(sent.every((h) => h["x-rootvine-shared"] === "1")).toBe(true);
+    });
+
+    it("without secrets, sends none of it (BeatsVine counts the address, as before)", async () => {
+        const sent: Array<Record<string, string>> = [];
+        stubBeatsVine(0, sent);
+        const { base } = await start({ trustProxy: true });
+        await call(base, "203.0.113.7");
+        expect(sent.length).toBeGreaterThan(0);
+        expect(sent.every((h) => Object.keys(h).every((name) => !name.startsWith("x-rootvine")))).toBe(true);
+    });
+
+    it("never logs the address, the id or the key", async () => {
+        stubBeatsVine();
+        const { base, logs } = await start({ trustProxy: true, requester: SECRETS });
+        await call(base, "203.0.113.7");
+        const all = logs.join("\n");
+        expect(all).not.toContain("203.0.113.7");
+        expect(all).not.toContain(requesterId(SECRETS.salt, "203.0.113.7"));
+        expect(all).not.toContain(SECRETS.key);
     });
 });
 

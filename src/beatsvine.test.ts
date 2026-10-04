@@ -10,6 +10,7 @@ import {
     getJson,
 } from "./beatsvine.js";
 import { USER_AGENT } from "./version.js";
+import { requesterContext } from "./requester.js";
 
 /**
  * One place for BeatsVine addresses. Before this module, four files each built
@@ -156,5 +157,64 @@ describe("getJson", () => {
         const calls = stubFetch("{}", { status: 200 });
         await getJson(`${BEATSVINE_BASE}/x/json`, AbortSignal.timeout(1000));
         expect((calls[0].init?.headers as Record<string, string>)["User-Agent"]).toBe(USER_AGENT);
+    });
+
+    it("inside a hosted request, tells BeatsVine who asked (1.4.2)", async () => {
+        const calls = stubFetch("{}", { status: 200 });
+        const secrets = { salt: "s".repeat(64), key: "k".repeat(64) };
+        await requesterContext.run({ secrets, caller: { clientKey: "203.0.113.7", shared: false } }, () =>
+            getJson(`${BEATSVINE_BASE}/x/json`, AbortSignal.timeout(1000)),
+        );
+        const headers = calls[0].init?.headers as Record<string, string>;
+        expect(headers["x-rootvine-requester"]).toMatch(/^[a-f0-9]{64}$/);
+        expect(headers["x-rootvine-key"]).toBe(secrets.key);
+        expect(headers["User-Agent"]).toBe(USER_AGENT);
+    });
+
+    it("follows a redirect, and the secret key never leaves BeatsVine", async () => {
+        const calls: Array<{ url: string; headers: Record<string, string> }> = [];
+        const routes: Record<string, Response | (() => Response)> = {
+            "https://beatsvine.com/old/json": () => new Response(null, { status: 308, headers: { location: "https://www.beatsvine.com/new/json" } }),
+            "https://www.beatsvine.com/new/json": () => new Response(null, { status: 302, headers: { location: "https://elsewhere.example/x/json" } }),
+            "https://elsewhere.example/x/json": () => new Response(JSON.stringify({ ok: 1 }), { status: 200 }),
+        };
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (url: string, init?: RequestInit) => {
+                calls.push({ url, headers: { ...(init?.headers as Record<string, string>) } });
+                const route = routes[url];
+                return typeof route === "function" ? route() : new Response("{}", { status: 404 });
+            }),
+        );
+        const secrets = { salt: "s".repeat(64), key: "k".repeat(64) };
+        const result = await requesterContext.run({ secrets, caller: { clientKey: "203.0.113.7", shared: false } }, () =>
+            getJson("https://beatsvine.com/old/json", AbortSignal.timeout(1000)),
+        );
+        expect(result).toEqual({ ok: true, status: 200, finalUrl: "https://elsewhere.example/x/json", data: { ok: 1 } });
+        expect(calls.map((c) => c.url)).toEqual([
+            "https://beatsvine.com/old/json",
+            "https://www.beatsvine.com/new/json",
+            "https://elsewhere.example/x/json",
+        ]);
+        expect(calls[0].headers["x-rootvine-key"]).toBe(secrets.key);
+        expect(calls[1].headers["x-rootvine-key"]).toBe(secrets.key);
+        expect(Object.keys(calls[2].headers).filter((name) => name.startsWith("x-rootvine"))).toEqual([]);
+    });
+
+    it("gives up on a redirect loop instead of following it forever", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response(null, { status: 302, headers: { location: `${BEATSVINE_BASE}/loop/json` } })),
+        );
+        const result = await getJson(`${BEATSVINE_BASE}/loop/json`, AbortSignal.timeout(1000));
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error).toMatch(/redirect/i);
+    });
+
+    it("outside a hosted request (the npm package), sends no requester headers", async () => {
+        const calls = stubFetch("{}", { status: 200 });
+        await getJson(`${BEATSVINE_BASE}/x/json`, AbortSignal.timeout(1000));
+        const headers = calls[0].init?.headers as Record<string, string>;
+        expect(Object.keys(headers).filter((name) => name.startsWith("x-rootvine"))).toEqual([]);
     });
 });
